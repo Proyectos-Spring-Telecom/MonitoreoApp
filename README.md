@@ -1,6 +1,6 @@
 # Monitoreo - Aplicación Base Flutter
 
-Proyecto base Flutter con arquitectura limpia y escalable. Desarrollada para generar ordenes de servicio generados por los instaladores.
+Proyecto base Flutter con arquitectura limpia y escalable. Desarrollada para generar ordenes de servicio generados por los instaladores
 
 ## Estructura del Proyecto
 
