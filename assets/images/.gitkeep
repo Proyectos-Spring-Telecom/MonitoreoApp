@@ -1,0 +1,11 @@
+# Esta carpeta contiene las imágenes de la aplicación
+# 
+# Ejemplos de uso:
+# - Logos
+# - Iconos personalizados
+# - Ilustraciones
+# - Imágenes de perfil por defecto
+# - Fondos
+#
+# Para usar una imagen en el código:
+# Image.asset('assets/images/nombre_imagen.png')
