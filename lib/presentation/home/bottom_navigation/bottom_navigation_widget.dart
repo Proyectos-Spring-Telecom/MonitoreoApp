@@ -13,30 +13,55 @@ class BottomNavigationWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BottomNavigationBar(
-      backgroundColor: AppColors.backgroundDark,
-      selectedItemColor: Colors.white,
-      unselectedItemColor: Colors.grey,
-      currentIndex: currentIndex,
-      onTap: onTap,
-      type: BottomNavigationBarType.fixed,
-      items: const [
-        BottomNavigationBarItem(
-          icon: Icon(Icons.home_outlined),
-          activeIcon: Icon(Icons.home),
-          label: 'Inicio',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.assignment_outlined),
-          activeIcon: Icon(Icons.assignment),
-          label: 'Orden de servicio',
-        ),
-        BottomNavigationBarItem(
-          icon: Icon(Icons.person_outline),
-          activeIcon: Icon(Icons.person),
-          label: 'Perfil',
-        ),
-      ],
+    return NavigationBarTheme(
+      data: NavigationBarThemeData(
+        backgroundColor: AppColors.backgroundDark,
+        indicatorColor: const Color(0x26FFFFFF),
+        surfaceTintColor: Colors.transparent,
+        height: 72,
+        labelTextStyle: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return TextStyle(
+            color: selected ? Colors.white : const Color(0xB3FFFFFF),
+            fontSize: 13,
+            fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+          );
+        }),
+        iconTheme: WidgetStateProperty.resolveWith((states) {
+          final selected = states.contains(WidgetState.selected);
+          return IconThemeData(
+            color: selected ? Colors.white : const Color(0xB3FFFFFF),
+            size: 26,
+          );
+        }),
+      ),
+      child: NavigationBar(
+        selectedIndex: currentIndex,
+        onDestinationSelected: onTap,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+        destinations: const [
+          NavigationDestination(
+            icon: Icon(Icons.home_outlined),
+            selectedIcon: Icon(Icons.home),
+            label: 'Inicio',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.event_note_outlined),
+            selectedIcon: Icon(Icons.event_note),
+            label: 'Agenda',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.assignment_turned_in_outlined),
+            selectedIcon: Icon(Icons.assignment_turned_in),
+            label: 'Servicios',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Perfil',
+          ),
+        ],
+      ),
     );
   }
 }

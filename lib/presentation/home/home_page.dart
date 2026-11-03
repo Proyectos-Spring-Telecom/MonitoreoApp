@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../controllers/auth_controller.dart';
 import 'drawer/app_drawer.dart';
 import 'bottom_navigation/bottom_navigation_widget.dart';
 import '../auth/profile/profile_page.dart';
-import '../service_order/service_order_page.dart';
+import '../orders/completed_orders_page.dart';
+import '../../domain/repositories/service_order_repository.dart';
+import '../agenda/agenda_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -14,6 +18,27 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _currentIndex = 0;
+  bool _readInitialTab = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // Catálogos al iniciar sesión (§2); se guardan en memoria.
+    final orders = context.read<ServiceOrderRepository>();
+    orders.getCatalog().ignore();
+    orders.getReasons().ignore();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_readInitialTab) return;
+    _readInitialTab = true;
+    final initialTab = ModalRoute.of(context)?.settings.arguments;
+    if (initialTab is int && initialTab >= 0 && initialTab <= 3) {
+      _currentIndex = initialTab;
+    }
+  }
 
   List<Widget> _getPages() {
     return [
@@ -23,36 +48,51 @@ class _HomePageState extends State<HomePage> {
             _currentIndex = 1;
           });
         },
+        onHistoryPressed: () {
+          setState(() {
+            _currentIndex = 2;
+          });
+        },
       ),
-      const ServiceOrderPage(),
-      const ProfilePage(),
+      const AgendaPage(),
+      const CompletedOrdersPage(showAppBar: false),
+      const ProfilePage(showAppBar: false),
     ];
   }
 
-  String _getAppBarTitle(int index) {
+  Widget _getAppBarTitle(int index) {
     switch (index) {
-      case 0:
-        return 'Inicio';
       case 1:
-        return 'Orden de Servicio';
+        return const Text('Mi agenda');
       case 2:
-        return 'Perfil';
+        return const Text('Servicios');
+      case 3:
+        return const Text('Perfil');
       default:
-        return 'Inicio';
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Image.asset(
+            'assets/images/logos/logo_horizontal.webp',
+            height: 32,
+            fit: BoxFit.contain,
+          ),
+        );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AppColors.backgroundDark,
       appBar: AppBar(
         backgroundColor: AppColors.backgroundDark,
         foregroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.white),
-        title: Text(
-          _getAppBarTitle(_currentIndex),
-          style: const TextStyle(color: Colors.white),
-        ),
+        centerTitle: false,
+        titleSpacing: 0,
+        titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
+        title: _getAppBarTitle(_currentIndex),
       ),
       drawer: const AppDrawer(),
       body: _getPages()[_currentIndex],
@@ -68,172 +108,142 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
-class _HomeTab extends StatefulWidget {
+class _HomeTab extends StatelessWidget {
+  static const Color _accent = Color(0xFF4FC3E8);
+
   final VoidCallback onStartPressed;
-  
-  const _HomeTab({required this.onStartPressed});
+  final VoidCallback onHistoryPressed;
 
-  @override
-  State<_HomeTab> createState() => _HomeTabState();
-}
-
-class _HomeTabState extends State<_HomeTab> {
-  bool _isImageLoaded = false;
+  const _HomeTab({
+    required this.onStartPressed,
+    required this.onHistoryPressed,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final user = context.watch<AuthController>().user;
+    final name = user?.name.trim() ?? '';
+    final role = (user?.role ?? 'Operador').toUpperCase();
+    final firstName = name.isEmpty ? '' : name.split(' ').first;
+    final greeting =
+        firstName.isEmpty ? 'Bienvenido' : 'Bienvenido,\n$firstName';
+
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Imagen de fondo
         Image.asset(
           'assets/images/backgrounds/bienvenida.jpg',
           fit: BoxFit.cover,
-          width: double.infinity,
-          height: double.infinity,
+          alignment: Alignment.topCenter,
           frameBuilder: (context, child, frame, wasSynchronouslyLoaded) {
-            if (wasSynchronouslyLoaded || frame != null) {
-              // La imagen está cargada
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) {
-                  setState(() {
-                    _isImageLoaded = true;
-                  });
-                }
-              });
-            }
-            return child;
-          },
-          errorBuilder: (context, error, stackTrace) {
-            // Debug: imprimir el error
-            debugPrint('Error loading image: $error');
-            debugPrint('Stack trace: $stackTrace');
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                setState(() {
-                  _isImageLoaded = true;
-                });
-              }
-            });
-            return Container(
-              color: AppColors.backgroundDark,
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(
-                      Icons.image_not_supported,
-                      color: Colors.white54,
-                      size: 64,
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      'Error al cargar imagen',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
-                        fontSize: 14,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+            if (wasSynchronouslyLoaded) return child;
+            return AnimatedOpacity(
+              opacity: frame == null ? 0 : 1,
+              duration: const Duration(milliseconds: 300),
+              child: child,
             );
           },
+          errorBuilder: (context, error, stackTrace) {
+            return const ColoredBox(color: AppColors.backgroundDark);
+          },
         ),
-        // Loading mientras carga la imagen
-        if (!_isImageLoaded)
-          Container(
-            color: AppColors.backgroundDark,
-            child: const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primaryBlue),
-              ),
-            ),
-          ),
-        // Overlay oscuro para mejorar legibilidad
-        if (_isImageLoaded)
-          Container(
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Colors.black.withOpacity(0.3),
-                  Colors.black.withOpacity(0.6),
-                ],
-              ),
-            ),
-          ),
-        // Contenido
-        if (_isImageLoaded)
-          SafeArea(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                const Spacer(flex: 45),
-                // Logo SPRING telecom
-                _buildLogo(),
-                const SizedBox(height: 24),
-                // Slogan
-                const Text(
-                  'Explora el internet de las cosas',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    letterSpacing: 1.6,
-                  ),
-                ),
-                const Spacer(flex: 1),
-                const SizedBox(height: 15),
-                // Botón Comenzar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 50,
-                    child: ElevatedButton(
-                      onPressed: widget.onStartPressed,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primaryBlue,
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        elevation: 4,
-                      ),
-                      child: const Text(
-                        'Comenzar',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.0,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 40),
+        const DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              stops: [0.0, 0.45, 0.7, 1.0],
+              colors: [
+                Color(0x0009081C),
+                Color(0x0009081C),
+                Color(0x9909081C),
+                Color(0xF209081C),
               ],
             ),
           ),
+        ),
+        SafeArea(
+          top: false,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.end,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  role,
+                  style: const TextStyle(
+                    color: _accent,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 1.5,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  greeting,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 30,
+                    fontWeight: FontWeight.w700,
+                    height: 1.15,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 54,
+                  child: ElevatedButton(
+                    onPressed: onStartPressed,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primaryBlue,
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      elevation: 0,
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          'Ver mi agenda',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Icon(Icons.arrow_forward, size: 22),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  height: 54,
+                  child: OutlinedButton(
+                    onPressed: onHistoryPressed,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: _accent,
+                      side: const BorderSide(color: Color(0x994FC3E8)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    child: const Text(
+                      'Ver mi historial',
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
       ],
     );
   }
-
-  Widget _buildLogo() {
-    return Image.asset(
-      'assets/images/logos/SPRING-HORIZONTAL.png',
-      height: 80,
-      fit: BoxFit.contain,
-      errorBuilder: (context, error, stackTrace) {
-        return const Icon(
-          Icons.image_not_supported,
-          color: Colors.white54,
-          size: 64,
-        );
-      },
-    );
-  }
 }
-

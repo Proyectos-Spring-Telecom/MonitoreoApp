@@ -34,12 +34,20 @@ dependencies:
   
   # Alertas
   quickalert: ^1.0.0
+  image_picker: ^1.2.4
+  url_launcher: ^6.3.3
+  flutter_secure_storage: ^11.2.0
+  http_parser: ^4.1.2
+  image: ^4.12.0
+  path_provider: ^2.1.6
+  open_filex: ^5.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  flutter_launcher_icons: ^0.13.1
+  flutter_launcher_icons: ^0.14.4
+  image_picker_platform_interface: ^2.11.2
 
 flutter:
   uses-material-design: true
@@ -57,8 +65,13 @@ flutter:
 flutter_launcher_icons:
   android: true
   ios: true
-  image_path: "assets/images/logos/favicon.png"
+  image_path: "assets/images/icons/icono_de_instalador.png"
   min_sdk_android: 21
-  adaptive_icon_background: "#FFFFFF"
-  adaptive_icon_foreground: "assets/images/logos/favicon.png"
+  # Azul del fondo de la ilustración: rellena lo que el recorte de Android
+  # (círculo, squircle) deje visible alrededor de la imagen.
+  adaptive_icon_background: "#0B3FCF"
+  adaptive_icon_foreground: "assets/images/icons/icono_de_instalador.png"
+  # La ilustración ocupa todo el cuadro; el margen la lleva a la zona que el
+  # launcher muestra para que no se recorten el técnico ni el auto.
+  adaptive_icon_foreground_inset: 16
   remove_alpha_ios: true  # Remueve transparencia para cumplir con App Store
