@@ -19,6 +19,9 @@ class AppTheme {
         centerTitle: true,
         elevation: 0,
       ),
+      actionIconTheme: ActionIconThemeData(
+        backButtonIconBuilder: (context) => const Icon(Icons.arrow_back),
+      ),
       cardTheme: CardThemeData(
         elevation: 2,
         shape: RoundedRectangleBorder(

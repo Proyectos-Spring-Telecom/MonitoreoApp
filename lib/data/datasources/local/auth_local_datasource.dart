@@ -1,20 +1,24 @@
 import '../../../core/constants/app_constants.dart';
 import '../../../core/errors/failures.dart';
+import '../../models/auth_tokens.dart';
 import '../../models/user_model.dart';
 import 'local_storage.dart';
+import 'secure_storage.dart';
 
 abstract class AuthLocalDataSource {
   Future<void> saveUser(UserModel user);
   Future<UserModel?> getUser();
-  Future<void> saveToken(String token);
-  Future<String?> getToken();
+  Future<void> saveTokens(AuthTokens tokens);
+  Future<String?> getAccessToken();
+  Future<String?> getRefreshToken();
   Future<void> clearAuthData();
 }
 
 class AuthLocalDataSourceImpl implements AuthLocalDataSource {
   final LocalStorage localStorage;
+  final SecureStorage secureStorage;
 
-  AuthLocalDataSourceImpl(this.localStorage);
+  AuthLocalDataSourceImpl(this.localStorage, this.secureStorage);
 
   @override
   Future<void> saveUser(UserModel user) async {
@@ -37,32 +41,49 @@ class AuthLocalDataSourceImpl implements AuthLocalDataSource {
     }
   }
 
+  /// Si la respuesta no trae refresh token se conserva el anterior.
   @override
-  Future<void> saveToken(String token) async {
+  Future<void> saveTokens(AuthTokens tokens) async {
     try {
-      await localStorage.saveString(AppConstants.authTokenKey, token);
+      await secureStorage.write(AppConstants.authTokenKey, tokens.accessToken);
+      final refreshToken = tokens.refreshToken;
+      if (refreshToken != null) {
+        await secureStorage.write(AppConstants.refreshTokenKey, refreshToken);
+      }
     } catch (e) {
-      throw CacheFailure('Error al guardar token: ${e.toString()}');
+      throw CacheFailure('Error al guardar la sesión: ${e.toString()}');
     }
   }
 
   @override
-  Future<String?> getToken() async {
+  Future<String?> getAccessToken() => _readSecure(AppConstants.authTokenKey);
+
+  @override
+  Future<String?> getRefreshToken() =>
+      _readSecure(AppConstants.refreshTokenKey);
+
+  Future<String?> _readSecure(String key) async {
     try {
-      return await localStorage.getString(AppConstants.authTokenKey);
+      final value = await secureStorage.read(key);
+      return value == null || value.isEmpty ? null : value;
     } catch (e) {
-      throw CacheFailure('Error al obtener token: ${e.toString()}');
+      throw CacheFailure('Error al leer la sesión: ${e.toString()}');
     }
   }
 
   @override
   Future<void> clearAuthData() async {
     try {
+      await secureStorage.delete(AppConstants.authTokenKey);
+      await secureStorage.delete(AppConstants.refreshTokenKey);
       await localStorage.remove(AppConstants.userDataKey);
-      await localStorage.remove(AppConstants.authTokenKey);
       await localStorage.remove(AppConstants.isLoggedInKey);
+      // Token simulado que guardaban versiones anteriores en SharedPreferences.
+      await localStorage.remove(AppConstants.authTokenKey);
     } catch (e) {
-      throw CacheFailure('Error al limpiar datos de autenticación: ${e.toString()}');
+      throw CacheFailure(
+        'Error al limpiar datos de autenticación: ${e.toString()}',
+      );
     }
   }
 }
