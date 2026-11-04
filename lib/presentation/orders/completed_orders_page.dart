@@ -155,38 +155,117 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
     _refresh();
   }
 
-  Widget _buildStatusFilter() {
-    return Row(
-      children: [
-        for (final status in const [
-          ServiceOrderStatus.cerrada,
-          ServiceOrderStatus.noCumplida,
-        ]) ...[
-          ChoiceChip(
-            label: Text(status == ServiceOrderStatus.cerrada
-                ? 'Cerradas'
-                : 'No cumplidas'),
-            selected: _status == status,
-            onSelected: (_) => _changeStatus(status),
-            labelStyle: TextStyle(
-              color: _status == status
-                  ? Colors.white
-                  : ServiceOrderColors.mutedText,
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
+  static const List<ServiceOrderStatus> _statusFilters = [
+    ServiceOrderStatus.cerrada,
+    ServiceOrderStatus.noCumplida,
+  ];
+
+  static const ServiceOrderStatus _defaultStatus = ServiceOrderStatus.cerrada;
+
+  static String _statusFilterLabel(ServiceOrderStatus status) =>
+      status == ServiceOrderStatus.cerrada ? 'Cerradas' : 'No cumplidas';
+
+  static String _statusFilterDescription(ServiceOrderStatus status) =>
+      status == ServiceOrderStatus.cerrada
+          ? 'Servicios terminados y registrados'
+          : 'Servicios que no se pudieron realizar';
+
+  Future<void> _openFilters() async {
+    FocusScope.of(context).unfocus();
+    final selected = await showModalBottomSheet<ServiceOrderStatus>(
+      context: context,
+      backgroundColor: ServiceOrderColors.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _StatusFilterSheet(
+        options: _statusFilters,
+        selected: _status,
+        labelOf: _statusFilterLabel,
+        descriptionOf: _statusFilterDescription,
+      ),
+    );
+    if (selected != null) _changeStatus(selected);
+  }
+
+  Widget _buildFilterButton() {
+    final isFiltered = _status != _defaultStatus;
+    return Material(
+      color: isFiltered
+          ? ServiceOrderColors.accentBackground
+          : ServiceOrderColors.card,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(
+          color: isFiltered ? ServiceOrderColors.accent : Colors.transparent,
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: _openFilters,
+        child: Tooltip(
+          message: 'Filtros',
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Center(
+              child: Badge(
+                isLabelVisible: isFiltered,
+                smallSize: 8,
+                backgroundColor: ServiceOrderColors.accent,
+                child: Icon(
+                  Icons.tune,
+                  color: isFiltered
+                      ? Colors.white
+                      : ServiceOrderColors.mutedText,
+                ),
+              ),
             ),
-            selectedColor: ServiceOrderColors.accentBackground,
-            backgroundColor: ServiceOrderColors.card,
-            side: BorderSide(
-              color: _status == status
-                  ? ServiceOrderColors.accent
-                  : ServiceOrderColors.divider,
-            ),
-            showCheckmark: false,
           ),
-          const SizedBox(width: 8),
-        ],
-      ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildActiveFilters() {
+    final chips = <Widget>[
+      if (_status != _defaultStatus)
+        _buildFilterChip(
+          label: _statusFilterLabel(_status),
+          icon: _status.icon,
+          onDeleted: () => _changeStatus(_defaultStatus),
+        ),
+      if (_selectedDate != null)
+        _buildFilterChip(
+          label: orderCalendarDate(_selectedDate!),
+          icon: Icons.event_outlined,
+          onDeleted: () => setState(() => _selectedDate = null),
+        ),
+    ];
+    if (chips.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Wrap(spacing: 8, runSpacing: 8, children: chips),
+      ),
+    );
+  }
+
+  Widget _buildFilterChip({
+    required String label,
+    required IconData icon,
+    required VoidCallback onDeleted,
+  }) {
+    return InputChip(
+      label: Text(label),
+      labelStyle: const TextStyle(color: Colors.white, fontSize: 13),
+      avatar: Icon(icon, size: 16, color: ServiceOrderColors.mutedText),
+      backgroundColor: ServiceOrderColors.card,
+      side: const BorderSide(color: ServiceOrderColors.divider),
+      deleteIconColor: ServiceOrderColors.mutedText,
+      deleteButtonTooltipMessage: 'Quitar filtro',
+      onDeleted: onDeleted,
     );
   }
 
@@ -257,33 +336,15 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: _buildSearchBar(),
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-            child: _buildStatusFilter(),
-          ),
-          if (_selectedDate != null)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: InputChip(
-                  label: Text(orderCalendarDate(_selectedDate!)),
-                  labelStyle:
-                      const TextStyle(color: Colors.white, fontSize: 13),
-                  avatar: const Icon(
-                    Icons.event_outlined,
-                    size: 16,
-                    color: ServiceOrderColors.mutedText,
-                  ),
-                  backgroundColor: ServiceOrderColors.card,
-                  side: const BorderSide(color: ServiceOrderColors.divider),
-                  deleteIconColor: ServiceOrderColors.mutedText,
-                  onDeleted: () => setState(() => _selectedDate = null),
-                ),
-              ),
+            child: Row(
+              children: [
+                Expanded(child: _buildSearchBar()),
+                const SizedBox(width: 10),
+                _buildFilterButton(),
+              ],
             ),
+          ),
+          _buildActiveFilters(),
           Expanded(child: _buildBody()),
         ],
       ),
@@ -321,7 +382,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
       items.add(_buildMessage(
         icon: Icons.search_off,
         message: _orders.isEmpty
-            ? 'Aún no hay órdenes registradas'
+            ? 'Aún no hay órdenes ${_statusFilterLabel(_status).toLowerCase()}'
             : 'No se encontraron órdenes',
       ));
     }
@@ -366,22 +427,27 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
 
   Widget _buildSearchBar() {
     return Container(
+      height: 48,
       decoration: BoxDecoration(
         color: ServiceOrderColors.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: TextField(
         controller: _searchController,
-        style: const TextStyle(color: Colors.white, fontSize: 16),
+        textInputAction: TextInputAction.search,
+        textAlignVertical: TextAlignVertical.center,
+        style: const TextStyle(color: Colors.white, fontSize: 15),
         cursorColor: Colors.white,
         decoration: InputDecoration(
-          hintText: 'Buscar folio, cliente o servicio...',
+          hintText: 'Buscar folio o cliente',
           hintStyle: const TextStyle(
             color: ServiceOrderColors.hintText,
-            fontSize: 16,
+            fontSize: 15,
           ),
+          hintMaxLines: 1,
           prefixIcon: const Icon(
             Icons.search,
+            size: 20,
             color: ServiceOrderColors.mutedText,
           ),
           suffixIcon: IconButton(
@@ -389,6 +455,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
               _selectedDate == null
                   ? Icons.calendar_today_outlined
                   : Icons.event,
+              size: 20,
               color: _selectedDate == null
                   ? ServiceOrderColors.mutedText
                   : ServiceOrderColors.accent,
@@ -397,7 +464,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
             onPressed: _pickDate,
           ),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(vertical: 18),
+          contentPadding: EdgeInsets.zero,
         ),
       ),
     );
@@ -489,8 +556,8 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
                             color: ServiceOrderColors.tile,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: Icon(
-                            orderTypeIcon(order),
+                          child: const Icon(
+                            Icons.directions_car_outlined,
                             color: ServiceOrderColors.mutedText,
                             size: 22,
                           ),
@@ -611,6 +678,166 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
                       ),
                   ],
                 ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Selección única: al tocar una opción se aplica y se cierra el panel.
+class _StatusFilterSheet extends StatelessWidget {
+  final List<ServiceOrderStatus> options;
+  final ServiceOrderStatus selected;
+  final String Function(ServiceOrderStatus status) labelOf;
+  final String Function(ServiceOrderStatus status) descriptionOf;
+
+  const _StatusFilterSheet({
+    required this.options,
+    required this.selected,
+    required this.labelOf,
+    required this.descriptionOf,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Center(
+            child: Container(
+              margin: const EdgeInsets.only(top: 10, bottom: 6),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: ServiceOrderColors.tile,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 4, 8, 0),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Filtrar servicios',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 17,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  tooltip: 'Cerrar',
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            ),
+          ),
+          const Padding(
+            padding: EdgeInsets.fromLTRB(20, 0, 20, 12),
+            child: Text(
+              'Elige el estatus de las órdenes que quieres ver',
+              style: TextStyle(
+                color: ServiceOrderColors.mutedText,
+                fontSize: 13,
+              ),
+            ),
+          ),
+          const Divider(height: 1, color: ServiceOrderColors.divider),
+          for (final status in options)
+            _StatusFilterOption(
+              label: labelOf(status),
+              description: descriptionOf(status),
+              icon: status.icon,
+              color: status.color,
+              selected: status == selected,
+              onTap: () => Navigator.of(context).pop(status),
+            ),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusFilterOption extends StatelessWidget {
+  final String label;
+  final String description;
+  final IconData icon;
+  final Color color;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _StatusFilterOption({
+    required this.label,
+    required this.description,
+    required this.icon,
+    required this.color,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+          color: selected ? ServiceOrderColors.accentBackground : null,
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 22),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      description,
+                      style: const TextStyle(
+                        color: ServiceOrderColors.mutedText,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Icon(
+                selected ? Icons.check_circle : Icons.radio_button_unchecked,
+                color: selected
+                    ? ServiceOrderColors.accent
+                    : ServiceOrderColors.hintText,
+                size: 24,
               ),
             ],
           ),
