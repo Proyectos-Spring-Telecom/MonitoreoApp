@@ -118,12 +118,23 @@ void main() {
     expect(find.text('Transportes del Norte'), findsOneWidget);
     expect(find.text('OS-000004'), findsNothing);
 
+    await tester.tap(find.byTooltip('Filtros'));
+    await tester.pumpAndSettle();
+    expect(find.text('Filtrar servicios'), findsOneWidget);
+
     await tester.tap(find.text('No cumplidas'));
     await tester.pumpAndSettle();
 
+    expect(find.text('Filtrar servicios'), findsNothing);
     expect(repository.listed.last, ServiceOrderStatus.noCumplida);
     expect(find.text('OS-000004'), findsOneWidget);
     expect(find.text('OS-000003'), findsNothing);
+
+    await tester.tap(find.byTooltip('Quitar filtro'));
+    await tester.pumpAndSettle();
+
+    expect(repository.listed.last, ServiceOrderStatus.cerrada);
+    expect(find.text('OS-000003'), findsOneWidget);
   });
 
   testWidgets('si falla muestra el error y permite reintentar', (tester) async {
