@@ -9,10 +9,12 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/app_message.dart';
+import '../../../domain/entities/service_order.dart';
 import '../../../domain/entities/service_order_record.dart';
 import '../../../domain/repositories/service_order_repository.dart';
 import '../../service_order/widgets/service_order_fields.dart';
 import '../../service_order/widgets/service_order_ui.dart';
+import '../order_models.dart';
 
 /// Descarga `GET /:id/pdf` (cualquier estado) y lo abre con el visor del
 /// teléfono.
@@ -117,7 +119,9 @@ Future<void> _shareByWhatsApp(
       folio: order.folio,
       send: (value) async {
         final link = await repository.shareOrder(order.id, phone: value);
-        return link.whatsappUrl ?? link.url;
+        final phone = _whatsAppPhone(link.whatsappUrl, typed: value);
+        final text = Uri.encodeComponent(_whatsAppMessage(order, link));
+        return 'https://wa.me/$phone?text=$text';
       },
     ),
   );
@@ -134,6 +138,62 @@ Future<void> _shareByWhatsApp(
   if (!opened && context.mounted) {
     AppMessage.error(context, 'No se pudo abrir WhatsApp');
   }
+}
+
+/// Teléfono del enlace del servidor (`wa.me/<tel>` o `?phone=`); si no viene,
+/// el capturado, con lada 52 cuando trae 10 dígitos. Vacío: WhatsApp pide
+/// elegir el contacto.
+String _whatsAppPhone(String? whatsappUrl, {required String typed}) {
+  final uri = whatsappUrl == null ? null : Uri.tryParse(whatsappUrl);
+  final fromServer = uri == null
+      ? ''
+      : (uri.queryParameters['phone'] ??
+              (uri.pathSegments.isEmpty ? '' : uri.pathSegments.first))
+          .replaceAll(RegExp(r'\D'), '');
+  if (fromServer.isNotEmpty) return fromServer;
+  final digits = typed.replaceAll(RegExp(r'\D'), '');
+  return digits.length == 10 ? '52$digits' : digits;
+}
+
+String _whatsAppMessage(ServiceOrderRecord order, ServiceOrderShareLink link) {
+  final client = order.clientName?.trim() ?? '';
+  final vehicle = order.vehicleLabel;
+  final date = order.closedAt ?? order.date;
+  final status = order.status;
+  final validity = _validityLabel(link.validHours);
+
+  return [
+    '¡Hola! 👋',
+    '',
+    'Te compartimos el reporte de tu orden de servicio con *Spring Telecom* 📄',
+    '',
+    '🔖 *Folio:* ${order.folio}',
+    '🛠️ *Servicio:* ${orderTypeLabel(order)}',
+    if (client.isNotEmpty) '🏢 *Cliente:* $client',
+    if (vehicle != null) '🚗 *Vehículo:* $vehicle',
+    if (date != null) '📅 *Fecha:* ${orderDateTime(date)}',
+    if (status != null)
+      '${status == ServiceOrderStatus.cerrada ? '✅' : '⚠️'} '
+          '*Estatus:* ${status.label}',
+    '',
+    '📥 *Descarga el PDF aquí:*',
+    link.url,
+    if (validity != null) ...[
+      '',
+      '⏳ El enlace estará disponible durante $validity.',
+    ],
+    '',
+    '¡Gracias por tu confianza! 🙌',
+  ].join('\n');
+}
+
+String? _validityLabel(int? hours) {
+  if (hours == null || hours <= 0) return null;
+  if (hours % 24 == 0) {
+    final days = hours ~/ 24;
+    return days == 1 ? '1 día' : '$days días';
+  }
+  return hours == 1 ? '1 hora' : '$hours horas';
 }
 
 Future<void> _shareByEmail(
