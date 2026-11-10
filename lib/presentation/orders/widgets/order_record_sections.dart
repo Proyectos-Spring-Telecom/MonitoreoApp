@@ -237,18 +237,9 @@ class OrderRecordSections extends StatelessWidget {
     final outgoing = OutgoingStatus.fromId(order.outgoingStatus);
     final removal = RemovalStatus.fromId(order.removalStatus);
 
+    final equipment = order.equipment;
+
     final rows = <(String, String)>[
-      ('Vehículo', value(order.vehicleLabel)),
-      if (type?.isMaintenance ?? false)
-        (
-          'Instalación atendida',
-          value(order.installationId ?? order.scheduledInstallationId)
-        ),
-      if (order.resultingInstallationId != null)
-        ('Instalación resultante', order.resultingInstallationId!),
-      if (type?.takesNewDevice ?? false)
-        ('Dispositivo nuevo', value(order.newDeviceId)),
-      if (type?.takesNewSim ?? false) ('SIM nueva', value(order.newSimId)),
       if (type?.takesOutgoingStatus ?? false)
         ('Destino del que sale', value(outgoing?.label)),
       if (type == ServiceType.desinstalacion)
@@ -269,12 +260,24 @@ class OrderRecordSections extends StatelessWidget {
       title: _isInstallation ? 'Vehículo e instalación' : 'Instalación',
       onEdit: onEditInstallation,
       children: [
-        for (final (index, (label, text)) in rows.indexed)
-          SummaryInfoRow(
-            label,
-            text,
-            isLast: index == rows.length - 1 && existing.isEmpty,
-          ),
+        SummaryInfoRow('Vehículo', value(order.vehicleLabel)),
+        SummaryInfoRow('Tipo de equipo', value(equipment?.equipmentType)),
+        _EquipmentDetail(
+          icon: Icons.memory_outlined,
+          label: 'Dispositivo',
+          text: equipment?.device,
+        ),
+        _EquipmentDetail(
+          icon: Icons.sim_card_outlined,
+          label: 'SIM',
+          text: equipment?.sim,
+        ),
+        for (final (label, text) in rows) SummaryInfoRow(label, text),
+        OrderRemotePhotos(
+          title: 'Fotografías del vehículo',
+          files: order.vehiclePhotos,
+          names: names,
+        ),
         if (onEditVehicle != null)
           Align(
             alignment: Alignment.centerLeft,
@@ -340,6 +343,135 @@ class OrderRecordSections extends StatelessWidget {
   }
 }
 
+/// Dispositivo o SIM a todo lo ancho. El texto del API viene como
+/// "Suntech ST210 - IMEI 3333 - Serie: 0009": la primera parte es el título
+/// y cada dato va en su renglón.
+class _EquipmentDetail extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String? text;
+
+  const _EquipmentDetail({
+    required this.icon,
+    required this.label,
+    required this.text,
+  });
+
+  static final RegExp _keyed = RegExp(
+    r'^(IMEI|ICCID|Serie|No\.? ?Serie|Tel|Tel[eé]fono)\s*:?\s*(.+)$',
+    caseSensitive: false,
+  );
+
+  static String _keyLabel(String key) {
+    final lower = key.toLowerCase();
+    if (lower.startsWith('tel')) return 'Teléfono';
+    if (lower.contains('serie')) return 'Serie';
+    return key.toUpperCase();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final value = text?.trim() ?? '';
+    if (value.isEmpty) return SummaryInfoRow(label, summaryOr(null));
+
+    String? title;
+    final details = <(String, String)>[];
+    for (final part in value.split(' - ')) {
+      final piece = part.trim();
+      if (piece.isEmpty) continue;
+      final match = _keyed.firstMatch(piece);
+      if (match != null) {
+        details.add((_keyLabel(match.group(1)!), match.group(2)!.trim()));
+      } else if (title == null) {
+        title = piece;
+      } else {
+        title = '$title - $piece';
+      }
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      decoration: const BoxDecoration(
+        border: Border(bottom: BorderSide(color: ServiceOrderColors.divider)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: ServiceOrderColors.mutedText,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: ServiceOrderColors.field,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (title != null)
+                  Row(
+                    children: [
+                      Icon(icon, size: 18, color: ServiceOrderColors.accent),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                for (final (index, (key, detail)) in details.indexed)
+                  Padding(
+                    padding: EdgeInsets.only(
+                      top: index == 0 && title == null ? 0 : 8,
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        SizedBox(
+                          width: 72,
+                          child: Text(
+                            key,
+                            style: const TextStyle(
+                              color: ServiceOrderColors.mutedText,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: SelectableText(
+                            detail,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 0.3,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// "Validó Ana López · 30 Oct, 2026 · 10:45 · Nota: …".
 String? testDetail(ServiceOrderTest? test) {
   if (test == null) return null;
@@ -386,7 +518,8 @@ class OrderRemotePhotos extends StatelessWidget {
                 _buildTile(
                   context,
                   file,
-                  names.option(ServiceOrderSection.photos, file.key),
+                  file.name ??
+                      names.option(ServiceOrderSection.photos, file.key),
                 ),
             ],
           ),

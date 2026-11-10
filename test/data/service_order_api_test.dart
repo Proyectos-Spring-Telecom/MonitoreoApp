@@ -271,6 +271,88 @@ void main() {
       expect([wall.day, wall.hour], [30, 10]);
     });
 
+    test('detalle: equipo en texto y fotos del vehículo', () async {
+      setUpWith((_) async => jsonResponse({
+            'data': [
+              {
+                ...maintenanceOrder,
+                'instalacion': {
+                  'idInstalacion': 340,
+                  'tipoEquipo': 'AVL',
+                  'dispositivo': 'Suntech ST210 E - IMEI 1111 - Serie: 01',
+                  'sim': 'Telcel - ICCID 0001 - Tel: 7770000000',
+                },
+                'instalacionResultado': {
+                  'tipoEquipo': 'AVL',
+                  'dispositivo': 'Suntech ST210 I - IMEI 3333 - Serie: 03',
+                  'sim': 'Telcel - ICCID 9999 - Tel: 7774859896',
+                },
+                'fotosVehiculo': [
+                  {
+                    'clave': 'fotoFrente',
+                    'nombre': 'Frontal',
+                    'url': 'https://s3.test/frente.jpg',
+                  },
+                  {
+                    'clave': 'foto',
+                    'nombre': 'Principal',
+                    'url': 'https://s3.test/principal.jpg',
+                  },
+                  {'clave': 'sin_url', 'nombre': 'Sin URL'},
+                ],
+              },
+            ],
+          }));
+
+      final order = await repository.getOrder('42');
+
+      expect(order.equipment!.device, 'Suntech ST210 I - IMEI 3333 - Serie: 03');
+      expect(order.equipment!.sim, 'Telcel - ICCID 9999 - Tel: 7774859896');
+      expect(order.installation!.device, contains('IMEI 1111'));
+      expect(order.vehiclePhotos.map((p) => p.name), ['Frontal', 'Principal']);
+      expect(order.vehiclePhoto!.url, 'https://s3.test/principal.jpg');
+    });
+
+    test('sin foto Principal no se usa otra foto del vehículo', () async {
+      setUpWith((_) async => jsonResponse({
+            'data': [
+              {
+                ...maintenanceOrder,
+                'fotosVehiculo': [
+                  {
+                    'clave': 'fotoFrente',
+                    'nombre': 'Frontal',
+                    'url': 'https://s3.test/frente.jpg',
+                  },
+                ],
+              },
+            ],
+          }));
+
+      final order = await repository.getOrder('42');
+
+      expect(order.vehiclePhotos, hasLength(1));
+      expect(order.vehiclePhoto, isNull);
+    });
+
+    test('detalle sin equipo ni fotos del vehículo', () async {
+      setUpWith((_) async => jsonResponse({
+            'data': [
+              {
+                ...maintenanceOrder,
+                'instalacionResultado': null,
+                'fotosVehiculo': [],
+              },
+            ],
+          }));
+
+      final order = await repository.getOrder('42');
+
+      expect(order.equipment, isNull);
+      expect(order.vehiclePhotos, isEmpty);
+      expect(order.vehiclePhoto, isNull);
+    });
+
     test('alta sobre vehículo con equipo: necesita autorización', () async {
       setUpWith((_) async => jsonResponse({
             'data': [

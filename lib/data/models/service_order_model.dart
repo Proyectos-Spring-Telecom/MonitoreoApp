@@ -183,6 +183,31 @@ class ServiceOrderModel {
       ));
     }
 
+    final vehiclePhotos = <ServiceOrderFile>[];
+    for (final photo in maps('fotosVehiculo')) {
+      final layer = [photo];
+      final key = JsonReader.string(layer, const ['clave']);
+      final url = JsonReader.string(layer, const ['url', 'ruta']);
+      if (key == null || url == null) continue;
+      vehiclePhotos.add(ServiceOrderFile(
+        key: key,
+        url: url,
+        name: JsonReader.string(layer, const ['nombre']),
+      ));
+    }
+
+    InstallationSummary? summary(String key) {
+      final raw = JsonReader.pick(top, [key]);
+      if (raw is! Map) return null;
+      final layer = [Map<String, dynamic>.from(raw)];
+      final result = InstallationSummary(
+        equipmentType: JsonReader.string(layer, const ['tipoEquipo']),
+        device: JsonReader.string(layer, const ['dispositivo']),
+        sim: JsonReader.string(layer, const ['sim']),
+      );
+      return result.isEmpty ? null : result;
+    }
+
     final rawMissing = JsonReader.pick(top, const ['faltantesParaCerrar']);
     return ServiceOrderRecord(
       id: id,
@@ -203,6 +228,8 @@ class ServiceOrderModel {
       installationId: text('idInstalacion'),
       productId: text('idProducto'),
       resultingInstallationId: text('idInstalacionResultado'),
+      installation: summary('instalacion'),
+      resultingInstallation: summary('instalacionResultado'),
       crmReference: text('referenciaCrm'),
       unit: integer('unidad'),
       unitsTotal: integer('unidadesTotal'),
@@ -226,6 +253,7 @@ class ServiceOrderModel {
       tests: tests,
       answers: answers,
       files: files,
+      vehiclePhotos: vehiclePhotos,
       missingToClose: rawMissing is List
           ? rawMissing
               .map((item) => '$item'.trim())
