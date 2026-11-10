@@ -14,11 +14,20 @@ class InstallationResource extends Equatable {
   /// `null` cuando el API no informa el estatus.
   final int? status;
 
+  /// Tipo de equipo del dispositivo ("AVL").
+  final String? typeName;
+
+  /// Texto como en el PDF de la orden: "Suntech ST210 - IMEI 3333 -
+  /// Serie: 0009" o "Telcel - ICCID 0002 - Tel: 7775642667".
+  final String? summary;
+
   const InstallationResource({
     required this.id,
     required this.label,
     this.clientId,
     this.status,
+    this.typeName,
+    this.summary,
   });
 
   bool get isAvailable => status == null || status == availableStatus;
@@ -30,7 +39,7 @@ class InstallationResource extends Equatable {
       isAvailable && (isInWarehouse || clientId == orderClientId);
 
   @override
-  List<Object?> get props => [id, label, clientId, status];
+  List<Object?> get props => [id, label, clientId, status, typeName, summary];
 }
 
 /// Equipos y SIMs que `GET /dispositivos/list` y `/sims/list` devuelven para

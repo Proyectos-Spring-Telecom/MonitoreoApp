@@ -20,10 +20,14 @@ class OrderRecordSections extends StatelessWidget {
   final VoidCallback? onEditChecklist;
   final VoidCallback? onEditTests;
 
+  /// Completa el equipo cuando el API no manda los textos.
+  final InstallationSummary? equipmentFallback;
+
   const OrderRecordSections({
     super.key,
     required this.order,
     required this.names,
+    this.equipmentFallback,
     this.onEditVehicle,
     this.onEditInstallation,
     this.onEditChecklist,
@@ -237,7 +241,8 @@ class OrderRecordSections extends StatelessWidget {
     final outgoing = OutgoingStatus.fromId(order.outgoingStatus);
     final removal = RemovalStatus.fromId(order.removalStatus);
 
-    final equipment = order.equipment;
+    final equipment = (order.equipment ?? const InstallationSummary())
+        .withFallback(equipmentFallback);
 
     final rows = <(String, String)>[
       if (type?.takesOutgoingStatus ?? false)
@@ -261,16 +266,16 @@ class OrderRecordSections extends StatelessWidget {
       onEdit: onEditInstallation,
       children: [
         SummaryInfoRow('Vehículo', value(order.vehicleLabel)),
-        SummaryInfoRow('Tipo de equipo', value(equipment?.equipmentType)),
+        SummaryInfoRow('Tipo de equipo', value(equipment.equipmentType)),
         _EquipmentDetail(
           icon: Icons.memory_outlined,
           label: 'Dispositivo',
-          text: equipment?.device,
+          text: equipment.device,
         ),
         _EquipmentDetail(
           icon: Icons.sim_card_outlined,
           label: 'SIM',
-          text: equipment?.sim,
+          text: equipment.sim,
         ),
         for (final (label, text) in rows) SummaryInfoRow(label, text),
         OrderRemotePhotos(
@@ -358,7 +363,7 @@ class _EquipmentDetail extends StatelessWidget {
   });
 
   static final RegExp _keyed = RegExp(
-    r'^(IMEI|ICCID|Serie|No\.? ?Serie|Tel|Tel[eé]fono)\s*:?\s*(.+)$',
+    r'^(IMEI|ICCID|No\.? ?Serie|Serie|Tel[eé]fono|Tel)\b\s*:?\s*(.+)$',
     caseSensitive: false,
   );
 

@@ -9,6 +9,8 @@ class InstallationResourceModel extends InstallationResource {
     required super.label,
     super.clientId,
     super.status,
+    super.typeName,
+    super.summary,
   });
 
   static const Map<int, String> deviceTypeNames = {
@@ -29,15 +31,40 @@ class InstallationResourceModel extends InstallationResource {
     'detalle',
   ];
 
+  static const List<String> _imeiKeys = ['imei'];
+  static const List<String> _serialKeys = ['numeroSerie', 'serie', 'noSerie'];
+  static const List<String> _phoneKeys = [
+    'telefono',
+    'numeroTelefono',
+    'numero',
+    'linea',
+  ];
+  static const List<String> _simIdKeys = [
+    'simId',
+    'iccid',
+    'numeroSim',
+    'serie',
+    'imei',
+  ];
+
   static List<InstallationResourceModel> devices(
     dynamic json, {
     int? requestedTypeId,
   }) =>
-      _parse(json, const ['id', 'idDispositivo'],
-          (layers) => deviceLabel(layers, requestedTypeId: requestedTypeId));
+      _parse(
+        json,
+        const ['id', 'idDispositivo'],
+        (layers) => deviceLabel(layers, requestedTypeId: requestedTypeId),
+        typeNameOf: (layers) => _deviceTypeName(layers, requestedTypeId),
+        summaryOf: deviceSummary,
+      );
 
-  static List<InstallationResourceModel> sims(dynamic json) =>
-      _parse(json, const ['id', 'idSim'], simLabel);
+  static List<InstallationResourceModel> sims(dynamic json) => _parse(
+        json,
+        const ['id', 'idSim'],
+        simLabel,
+        summaryOf: simSummary,
+      );
 
   /// "Tipo: … - Imei: … - N° Serie: …" (o "Eco: …" si no hay imei ni serie).
   static String? deviceLabel(
@@ -45,9 +72,8 @@ class InstallationResourceModel extends InstallationResource {
     int? requestedTypeId,
   }) {
     final typeName = _deviceTypeName(layers, requestedTypeId);
-    final imei = JsonReader.string(layers, const ['imei']);
-    final serial =
-        JsonReader.string(layers, const ['numeroSerie', 'serie', 'noSerie']);
+    final imei = JsonReader.string(layers, _imeiKeys);
+    final serial = JsonReader.string(layers, _serialKeys);
     final parts = <String>[
       if (typeName != null) 'Tipo: $typeName',
       if (imei != null) 'Imei: $imei',
@@ -65,14 +91,8 @@ class InstallationResourceModel extends InstallationResource {
 
   /// "Telefono: … - Sim ID: …".
   static String? simLabel(List<Map<String, dynamic>> layers) {
-    final phone = JsonReader.string(
-      layers,
-      const ['telefono', 'numeroTelefono', 'numero', 'linea'],
-    );
-    final simId = JsonReader.string(
-      layers,
-      const ['simId', 'iccid', 'numeroSim', 'serie', 'imei'],
-    );
+    final phone = JsonReader.string(layers, _phoneKeys);
+    final simId = JsonReader.string(layers, _simIdKeys);
     final parts = <String>[
       if (phone != null) 'Telefono: $phone',
       if (simId != null) 'Sim ID: $simId',
@@ -80,18 +100,65 @@ class InstallationResourceModel extends InstallationResource {
     return parts.isEmpty ? null : parts.join(' - ');
   }
 
+  /// "Suntech ST210 - IMEI 3333 - Serie: 0009", como en el PDF.
+  static String? deviceSummary(List<Map<String, dynamic>> layers) {
+    final model = [
+      _name(layers, const ['marca', 'nombreMarca']),
+      _name(layers, const ['modelo', 'nombreModelo']),
+    ].whereType<String>().join(' ');
+    final imei = JsonReader.string(layers, _imeiKeys);
+    final serial = JsonReader.string(layers, _serialKeys);
+    if (imei == null && serial == null) return null;
+    return [
+      if (model.isNotEmpty) model,
+      if (imei != null) 'IMEI $imei',
+      if (serial != null) 'Serie: $serial',
+    ].join(' - ');
+  }
+
+  /// "Telcel - ICCID 0002 - Tel: 7775642667", como en el PDF.
+  static String? simSummary(List<Map<String, dynamic>> layers) {
+    final company = _name(
+      layers,
+      const ['compania', 'compañia', 'operador', 'carrier', 'proveedor'],
+    );
+    final iccid = JsonReader.string(layers, _simIdKeys);
+    final phone = JsonReader.string(layers, _phoneKeys);
+    if (iccid == null && phone == null) return null;
+    return [
+      if (company != null) company,
+      if (iccid != null) 'ICCID $iccid',
+      if (phone != null) 'Tel: $phone',
+    ].join(' - ');
+  }
+
+  /// Texto directo o el `nombre` de un objeto anidado.
+  static String? _name(List<Map<String, dynamic>> layers, List<String> keys) {
+    final value = JsonReader.pick(layers, keys);
+    if (value is Map) {
+      return JsonReader.string(
+        [Map<String, dynamic>.from(value)],
+        const ['nombre', 'descripcion'],
+      );
+    }
+    return JsonReader.string(layers, keys);
+  }
+
   static List<InstallationResourceModel> _parse(
     dynamic json,
     List<String> idKeys,
-    String? Function(List<Map<String, dynamic>> layers) labelOf,
-  ) {
+    String? Function(List<Map<String, dynamic>> layers) labelOf, {
+    String? Function(List<Map<String, dynamic>> layers)? typeNameOf,
+    String? Function(List<Map<String, dynamic>> layers)? summaryOf,
+  }) {
     final result = <InstallationResourceModel>[];
     for (final raw in JsonReader.list(json)) {
       if (raw is! Map) continue;
       final item = Map<String, dynamic>.from(raw);
       final top = [item];
       final id = JsonReader.string(top, idKeys);
-      final label = labelOf(JsonReader.layers(item, wrapperKeys: _nestedKeys));
+      final layers = JsonReader.layers(item, wrapperKeys: _nestedKeys);
+      final label = labelOf(layers);
       if (id == null || label == null) continue;
       result.add(InstallationResourceModel(
         id: id,
@@ -110,6 +177,8 @@ class InstallationResourceModel extends InstallationResource {
               ) ??
               '',
         ),
+        typeName: typeNameOf?.call(layers),
+        summary: summaryOf?.call(layers),
       ));
     }
     return result;
