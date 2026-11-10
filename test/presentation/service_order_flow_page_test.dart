@@ -23,10 +23,22 @@ class _FakeStock implements InstallationRemoteDataSource {
   Future<InstallationStock> getStock({required String clientId}) async =>
       const InstallationStock(
         devices: [
-          InstallationResource(id: '981', label: 'Imei: 222', status: 1),
+          InstallationResource(
+            id: '981',
+            label: 'Imei: 222',
+            status: 1,
+            typeName: 'AVL',
+            summary: 'Suntech ST210 - IMEI 222 - Serie: 0000222',
+          ),
           InstallationResource(id: '500', label: 'Imei: 111', status: 2),
         ],
-        sims: [InstallationResource(id: '77', label: 'Telefono: 777')],
+        sims: [
+          InstallationResource(
+            id: '77',
+            label: 'Telefono: 777',
+            summary: 'Telcel - ICCID 0009999 - Tel: 777',
+          ),
+        ],
       );
 }
 
@@ -224,6 +236,42 @@ void main() {
     expect(find.text('Falta el monitorista'), findsOneWidget);
     await tapVisible(tester, find.text('Registrar orden'));
     expect(repository.calls, isNot(contains('close')));
+  });
+
+  testWidgets('resumen del alta: equipo y SIM elegidos sin textos del API',
+      (tester) async {
+    final base = scheduledOrder(
+      type: ServiceType.instalacion,
+      status: ServiceOrderStatus.borrador,
+      productId: '7',
+    );
+    await openOrder(
+      tester,
+      ServiceOrderRecord(
+        id: base.id,
+        folio: base.folio,
+        typeKey: base.typeKey,
+        scheduledTypeKey: base.scheduledTypeKey,
+        statusKey: base.statusKey,
+        origin: base.origin,
+        clientId: base.clientId,
+        plate: base.plate,
+        productId: base.productId,
+        newDeviceId: '981',
+        newSimId: '77',
+      ),
+    );
+    controllerOf(tester).goTo(ServiceOrderStep.summary);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Vehículo e instalación'), findsOneWidget);
+    expect(find.text('AVL'), findsOneWidget);
+    expect(find.text('Suntech ST210'), findsOneWidget);
+    expect(find.text('222'), findsOneWidget, reason: 'IMEI');
+    expect(find.text('0000222'), findsOneWidget, reason: 'Serie');
+    expect(find.text('Telcel'), findsOneWidget);
+    expect(find.text('0009999'), findsOneWidget, reason: 'ICCID');
+    expect(find.text('777'), findsOneWidget, reason: 'Teléfono');
   });
 
   testWidgets('no se pudo realizar: motivo del técnico', (tester) async {

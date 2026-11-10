@@ -51,6 +51,32 @@ void main() {
       ]);
     });
 
+    test('tipo de equipo y texto como en el PDF', () {
+      final devices = InstallationResourceModel.devices([
+        {
+          'id': 88,
+          'imei': '3333',
+          'numeroSerie': '0003333',
+          'idTipoDispositivo': 3,
+          'marca': {'nombre': 'Suntech'},
+          'modelo': 'ST210',
+        },
+      ]);
+      final sims = InstallationResourceModel.sims([
+        {
+          'id': 3,
+          'imei': '0009999',
+          'numeroTelefono': '7774859896',
+          'compania': 'Telcel',
+        },
+      ]);
+
+      expect(devices.single.typeName, 'AVL');
+      expect(
+          devices.single.summary, 'Suntech ST210 - IMEI 3333 - Serie: 0003333');
+      expect(sims.single.summary, 'Telcel - ICCID 0009999 - Tel: 7774859896');
+    });
+
     test('entra lo del almacén (sin cliente) o lo reservado al cliente', () {
       const warehouse = InstallationResource(id: '1', label: 'A', status: 1);
       const reserved =

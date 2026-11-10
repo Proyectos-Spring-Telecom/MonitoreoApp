@@ -4,7 +4,10 @@ import 'package:quickalert/quickalert.dart';
 
 import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/failures.dart';
+import '../../../data/datasources/remote/installation_remote_datasource.dart';
+import '../../../domain/entities/installation_resources.dart';
 import '../../../domain/entities/service_order.dart';
+import '../../../domain/entities/service_order_record.dart';
 import '../../controllers/auth_controller.dart';
 import '../../orders/order_models.dart';
 import '../../orders/widgets/order_record_sections.dart';
@@ -23,6 +26,7 @@ class SummaryStep extends StatefulWidget {
 
 class _SummaryStepState extends State<SummaryStep> {
   bool _refreshing = true;
+  InstallationStock? _stock;
 
   @override
   void initState() {
@@ -36,7 +40,44 @@ class _SummaryStepState extends State<SummaryStep> {
       context,
       context.read<ServiceOrderFlowController>().refresh,
     );
-    if (mounted) setState(() => _refreshing = false);
+    if (!mounted) return;
+    setState(() => _refreshing = false);
+    await _loadStockIfNeeded();
+  }
+
+  /// En el alta el API puede mandar solo `idDispositivoNuevo` e `idSimNuevo`;
+  /// los textos se toman del catálogo del cliente, como en "Instalación".
+  Future<void> _loadStockIfNeeded() async {
+    final order = context.read<ServiceOrderFlowController>().order;
+    final clientId = order?.clientId;
+    if (_stock != null ||
+        order == null ||
+        clientId == null ||
+        order.type != ServiceType.instalacion ||
+        (order.newDeviceId == null && order.newSimId == null) ||
+        (order.equipment?.isComplete ?? false)) {
+      return;
+    }
+    try {
+      final stock = await context
+          .read<InstallationRemoteDataSource>()
+          .getStock(clientId: clientId);
+      if (mounted) setState(() => _stock = stock);
+    } catch (_) {}
+  }
+
+  InstallationSummary? _equipmentFromStock(ServiceOrderRecord order) {
+    final stock = _stock;
+    if (stock == null) return null;
+    InstallationResource? find(List<InstallationResource> items, String? id) =>
+        id == null ? null : items.where((item) => item.id == id).firstOrNull;
+    final device = find(stock.devices, order.newDeviceId);
+    final sim = find(stock.sims, order.newSimId);
+    return InstallationSummary(
+      equipmentType: device?.typeName,
+      device: device?.summary ?? device?.label,
+      sim: sim?.summary ?? sim?.label,
+    );
   }
 
   Future<void> _confirmClose() async {
@@ -177,6 +218,7 @@ class _SummaryStepState extends State<SummaryStep> {
             OrderRecordSections(
               order: order,
               names: names,
+              equipmentFallback: _equipmentFromStock(order),
               onEditVehicle: isInstallation && !order.vehicleLocked
                   ? () => controller.goTo(ServiceOrderStep.vehicle)
                   : null,

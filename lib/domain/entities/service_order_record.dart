@@ -122,6 +122,16 @@ class InstallationSummary extends Equatable {
 
   bool get isEmpty => equipmentType == null && device == null && sim == null;
 
+  bool get isComplete => equipmentType != null && device != null && sim != null;
+
+  /// Completa los datos que faltan con los de [other].
+  InstallationSummary withFallback(InstallationSummary? other) =>
+      InstallationSummary(
+        equipmentType: equipmentType ?? other?.equipmentType,
+        device: device ?? other?.device,
+        sim: sim ?? other?.sim,
+      );
+
   @override
   List<Object?> get props => [equipmentType, device, sim];
 }
@@ -156,6 +166,10 @@ class ServiceOrderRecord extends Equatable {
   /// `instalacion` e `instalacionResultado`.
   final InstallationSummary? installation;
   final InstallationSummary? resultingInstallation;
+
+  /// `dispositivoNuevo` y `simNuevo`: lo que entra mientras la orden no se
+  /// cierra.
+  final InstallationSummary? newEquipment;
 
   final String? crmReference;
   final int? unit;
@@ -208,6 +222,7 @@ class ServiceOrderRecord extends Equatable {
     this.resultingInstallationId,
     this.installation,
     this.resultingInstallation,
+    this.newEquipment,
     this.crmReference,
     this.unit,
     this.unitsTotal,
@@ -234,13 +249,17 @@ class ServiceOrderRecord extends Equatable {
     this.missingToClose = const [],
   });
 
-  /// Lo que quedó instalado o, si no hay, lo que se atendió.
-  InstallationSummary? get equipment => resultingInstallation ?? installation;
+  /// Lo que quedó instalado. Antes de cerrar: en el alta, lo que se va a
+  /// instalar; en los mantenimientos, lo que se atiende.
+  InstallationSummary? get equipment =>
+      resultingInstallation ??
+      (type == ServiceType.instalacion ? newEquipment : installation);
 
   /// Solo la foto "Principal" (`clave: foto`); sin ella se muestra el ícono.
   ServiceOrderFile? get vehiclePhoto => vehiclePhotos
       .where((photo) =>
-          photo.key == 'foto' || photo.name?.trim().toLowerCase() == 'principal')
+          photo.key == 'foto' ||
+          photo.name?.trim().toLowerCase() == 'principal')
       .firstOrNull;
 
   /// Lo que se está haciendo o, mientras no se inicia, lo programado.
@@ -340,6 +359,7 @@ class ServiceOrderRecord extends Equatable {
         resultingInstallationId,
         installation,
         resultingInstallation,
+        newEquipment,
         crmReference,
         unit,
         unitsTotal,

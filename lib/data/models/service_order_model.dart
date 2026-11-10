@@ -208,6 +208,40 @@ class ServiceOrderModel {
       return result.isEmpty ? null : result;
     }
 
+    /// Texto ("AVL - Suntech ST210 - IMEI 4444 - Serie: 0010") u objeto con
+    /// `tipoEquipo` y `dispositivo`/`sim`.
+    InstallationSummary? newEquipment() {
+      final rawDevice = JsonReader.pick(top, const ['dispositivoNuevo']);
+      final rawSim = JsonReader.pick(top, const ['simNuevo']);
+      String? equipmentType;
+      String? device;
+      String? sim;
+      if (rawDevice is Map) {
+        final layer = [Map<String, dynamic>.from(rawDevice)];
+        equipmentType = JsonReader.string(layer, const ['tipoEquipo']);
+        device =
+            JsonReader.string(layer, const ['dispositivo', 'descripcion']) ??
+                InstallationResourceModel.deviceSummary(layer);
+      } else if (rawDevice != null) {
+        (equipmentType, device) = _splitEquipmentType(
+            JsonReader.string(top, const ['dispositivoNuevo']));
+      }
+      if (rawSim is Map) {
+        final layer = [Map<String, dynamic>.from(rawSim)];
+        sim = JsonReader.string(layer, const ['sim', 'descripcion']) ??
+            InstallationResourceModel.simSummary(layer);
+      } else {
+        sim = JsonReader.string(top, const ['simNuevo']);
+      }
+      final result = InstallationSummary(
+        equipmentType:
+            equipmentType ?? JsonReader.string(top, const ['tipoEquipoNuevo']),
+        device: device,
+        sim: sim,
+      );
+      return result.isEmpty ? null : result;
+    }
+
     final rawMissing = JsonReader.pick(top, const ['faltantesParaCerrar']);
     return ServiceOrderRecord(
       id: id,
@@ -230,6 +264,7 @@ class ServiceOrderModel {
       resultingInstallationId: text('idInstalacionResultado'),
       installation: summary('instalacion'),
       resultingInstallation: summary('instalacionResultado'),
+      newEquipment: newEquipment(),
       crmReference: text('referenciaCrm'),
       unit: integer('unidad'),
       unitsTotal: integer('unidadesTotal'),
@@ -330,6 +365,25 @@ class ServiceOrderModel {
       simId: nestedId('sim', const ['idSim']),
       simLabel: InstallationResourceModel.simLabel(part('sim')),
     );
+  }
+
+  /// Separa el tipo de equipo cuando el texto empieza con uno conocido:
+  /// "AVL - Suntech ST210 - IMEI 4444" → ("AVL", "Suntech ST210 - IMEI 4444").
+  static (String?, String?) _splitEquipmentType(String? text) {
+    if (text == null) return (null, null);
+    final separator = text.indexOf(' - ');
+    if (separator > 0) {
+      final first = text.substring(0, separator).trim().toLowerCase();
+      final isType = InstallationResourceModel.deviceTypeNames.values
+          .any((name) => name.toLowerCase() == first);
+      if (isType) {
+        return (
+          text.substring(0, separator).trim(),
+          text.substring(separator + 3).trim(),
+        );
+      }
+    }
+    return (null, text);
   }
 
   static Map<String, dynamic>? _firstRow(dynamic response) {

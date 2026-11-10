@@ -306,11 +306,59 @@ void main() {
 
       final order = await repository.getOrder('42');
 
-      expect(order.equipment!.device, 'Suntech ST210 I - IMEI 3333 - Serie: 03');
+      expect(
+          order.equipment!.device, 'Suntech ST210 I - IMEI 3333 - Serie: 03');
       expect(order.equipment!.sim, 'Telcel - ICCID 9999 - Tel: 7774859896');
       expect(order.installation!.device, contains('IMEI 1111'));
       expect(order.vehiclePhotos.map((p) => p.name), ['Frontal', 'Principal']);
       expect(order.vehiclePhoto!.url, 'https://s3.test/principal.jpg');
+    });
+
+    test('alta en curso: equipo nuevo en texto, separando el tipo', () async {
+      setUpWith((_) async => jsonResponse({
+            'data': [
+              {
+                ...maintenanceOrder,
+                'tipoServicio': 'instalacion',
+                'instalacion': {
+                  'tipoEquipo': 'AVL',
+                  'dispositivo': 'Equipo encontrado - IMEI 1111',
+                },
+                'dispositivoNuevo':
+                    'AVL - Suntech ST210 - IMEI 3333 - Serie: 0003333',
+                'simNuevo': 'Telcel - ICCID 0009999 - Tel: 7774859896',
+              },
+            ],
+          }));
+
+      final order = await repository.getOrder('42');
+
+      expect(order.equipment!.equipmentType, 'AVL');
+      expect(order.equipment!.device,
+          'Suntech ST210 - IMEI 3333 - Serie: 0003333');
+      expect(order.equipment!.sim, 'Telcel - ICCID 0009999 - Tel: 7774859896');
+    });
+
+    test('alta en curso: equipo nuevo como objeto', () async {
+      setUpWith((_) async => jsonResponse({
+            'data': [
+              {
+                ...maintenanceOrder,
+                'tipoServicio': 'instalacion',
+                'dispositivoNuevo': {
+                  'tipoEquipo': 'AVL',
+                  'dispositivo': 'Suntech ST210 - IMEI 3333',
+                },
+                'simNuevo': {'iccid': '0009999', 'telefono': '7774859896'},
+              },
+            ],
+          }));
+
+      final equipment = (await repository.getOrder('42')).equipment!;
+
+      expect(equipment.equipmentType, 'AVL');
+      expect(equipment.device, 'Suntech ST210 - IMEI 3333');
+      expect(equipment.sim, 'ICCID 0009999 - Tel: 7774859896');
     });
 
     test('sin foto Principal no se usa otra foto del vehículo', () async {
