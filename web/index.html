@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+  <!--
+    `flutter build web --base-href /instaladores/` reemplaza este valor. Debe
+    empezar y terminar con "/".
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <meta name="description" content="Agenda y órdenes de servicio para técnicos instaladores de Spring Telecom.">
+  <meta name="theme-color" content="#09081C">
+  <meta name="color-scheme" content="dark">
+
+  <!-- Instalación en iOS ("Agregar a inicio") -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="Instaladores">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <title>Instaladores Spring</title>
+
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: #09081C;
+    }
+
+    /* Pantalla de carga: se quita cuando Flutter dibuja el primer cuadro. */
+    #splash {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: #09081C;
+      transition: opacity 0.3s ease;
+    }
+
+    #splash.hidden {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    #splash img {
+      width: 112px;
+      height: 112px;
+      border-radius: 26px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.45);
+    }
+
+    #splash .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid rgba(255, 255, 255, 0.18);
+      border-top-color: #6FA8E8;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      #splash .spinner { animation-duration: 2.5s; }
+    }
+  </style>
+</head>
+<body>
+  <div id="splash" role="status" aria-label="Cargando Instaladores Spring">
+    <img src="icons/Icon-192.png" alt="">
+    <div class="spinner"></div>
+  </div>
+
+  <noscript>Para usar Instaladores Spring activa JavaScript en tu navegador.</noscript>
+
+  <script>
+    window.addEventListener('flutter-first-frame', function () {
+      var splash = document.getElementById('splash');
+      if (!splash) return;
+      splash.classList.add('hidden');
+      setTimeout(function () { splash.remove(); }, 400);
+    });
+  </script>
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>
