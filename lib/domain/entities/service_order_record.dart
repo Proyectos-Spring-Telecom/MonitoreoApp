@@ -97,11 +97,33 @@ class ServiceOrderFile extends Equatable {
   final String url;
   final DateTime? createdAt;
 
-  const ServiceOrderFile(
-      {required this.key, required this.url, this.createdAt});
+  /// Nombre que manda el servidor (p. ej. en `fotosVehiculo`).
+  final String? name;
+
+  const ServiceOrderFile({
+    required this.key,
+    required this.url,
+    this.createdAt,
+    this.name,
+  });
 
   @override
-  List<Object?> get props => [key, url, createdAt];
+  List<Object?> get props => [key, url, createdAt, name];
+}
+
+/// Equipo de una instalación en textos listos para mostrar, como en el PDF:
+/// "Suntech ST210 - IMEI 3333 - Serie: 0000009".
+class InstallationSummary extends Equatable {
+  final String? equipmentType;
+  final String? device;
+  final String? sim;
+
+  const InstallationSummary({this.equipmentType, this.device, this.sim});
+
+  bool get isEmpty => equipmentType == null && device == null && sim == null;
+
+  @override
+  List<Object?> get props => [equipmentType, device, sim];
 }
 
 /// Orden tal como la devuelve el API (§3).
@@ -131,6 +153,10 @@ class ServiceOrderRecord extends Equatable {
   final String? productId;
   final String? resultingInstallationId;
 
+  /// `instalacion` e `instalacionResultado`.
+  final InstallationSummary? installation;
+  final InstallationSummary? resultingInstallation;
+
   final String? crmReference;
   final int? unit;
   final int? unitsTotal;
@@ -156,6 +182,9 @@ class ServiceOrderRecord extends Equatable {
   final List<ServiceOrderTest> tests;
   final List<ServiceOrderAnswer> answers;
   final List<ServiceOrderFile> files;
+
+  /// `fotosVehiculo`: fotos registradas en el vehículo, no en la orden.
+  final List<ServiceOrderFile> vehiclePhotos;
   final List<String> missingToClose;
 
   const ServiceOrderRecord({
@@ -177,6 +206,8 @@ class ServiceOrderRecord extends Equatable {
     this.installationId,
     this.productId,
     this.resultingInstallationId,
+    this.installation,
+    this.resultingInstallation,
     this.crmReference,
     this.unit,
     this.unitsTotal,
@@ -199,8 +230,18 @@ class ServiceOrderRecord extends Equatable {
     this.tests = const [],
     this.answers = const [],
     this.files = const [],
+    this.vehiclePhotos = const [],
     this.missingToClose = const [],
   });
+
+  /// Lo que quedó instalado o, si no hay, lo que se atendió.
+  InstallationSummary? get equipment => resultingInstallation ?? installation;
+
+  /// Solo la foto "Principal" (`clave: foto`); sin ella se muestra el ícono.
+  ServiceOrderFile? get vehiclePhoto => vehiclePhotos
+      .where((photo) =>
+          photo.key == 'foto' || photo.name?.trim().toLowerCase() == 'principal')
+      .firstOrNull;
 
   /// Lo que se está haciendo o, mientras no se inicia, lo programado.
   ServiceType? get type =>
@@ -297,6 +338,8 @@ class ServiceOrderRecord extends Equatable {
         installationId,
         productId,
         resultingInstallationId,
+        installation,
+        resultingInstallation,
         crmReference,
         unit,
         unitsTotal,
@@ -319,6 +362,7 @@ class ServiceOrderRecord extends Equatable {
         tests,
         answers,
         files,
+        vehiclePhotos,
         missingToClose,
       ];
 }
