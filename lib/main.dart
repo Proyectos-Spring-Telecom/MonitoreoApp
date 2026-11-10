@@ -124,7 +124,7 @@ class MyApp extends StatelessWidget {
         Provider.value(value: orderKeyStorage),
       ],
       child: MaterialApp(
-        title: 'Monitoreo',
+        title: 'Instaladores Spring',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         navigatorKey: appNavigatorKey,
