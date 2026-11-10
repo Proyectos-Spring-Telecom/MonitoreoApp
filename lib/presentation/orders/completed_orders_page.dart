@@ -29,6 +29,10 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
   late final ServiceOrderRepository _repository;
 
   List<ServiceOrderRecord> _orders = const [];
+
+  /// El paginado no trae `fotosVehiculo`: se consulta el detalle de cada
+  /// tarjeta una sola vez, al mostrarse.
+  final Map<String, Future<String?>> _vehiclePhotos = {};
   OrderNames _names = const OrderNames();
   int _page = 0;
   bool _hasMore = false;
@@ -77,6 +81,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
           await _repository.listOrders(status: _status, limit: _pageSize);
       if (!mounted) return;
       setState(() {
+        _vehiclePhotos.clear();
         _orders = result.items;
         _page = result.page;
         _hasMore = result.hasMore;
@@ -111,6 +116,20 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
       if (mounted) AppMessage.error(context, _message(e));
     } finally {
       if (mounted) setState(() => _isLoadingMore = false);
+    }
+  }
+
+  Future<String?> _vehiclePhotoOf(ServiceOrderRecord order) {
+    final known = order.vehiclePhoto?.url;
+    if (known != null) return Future.value(known);
+    return _vehiclePhotos[order.id] ??= _fetchVehiclePhoto(order.id);
+  }
+
+  Future<String?> _fetchVehiclePhoto(String orderId) async {
+    try {
+      return (await _repository.getOrder(orderId)).vehiclePhoto?.url;
+    } catch (_) {
+      return null;
     }
   }
 
@@ -549,18 +568,9 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
                   children: [
                     Row(
                       children: [
-                        Container(
-                          width: 44,
-                          height: 44,
-                          decoration: BoxDecoration(
-                            color: ServiceOrderColors.tile,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(
-                            Icons.directions_car_outlined,
-                            color: ServiceOrderColors.mutedText,
-                            size: 22,
-                          ),
+                        _VehicleThumbnail(
+                          key: ValueKey('vehicle-photo-${order.id}'),
+                          load: () => _vehiclePhotoOf(order),
                         ),
                         const SizedBox(width: 12),
                         Expanded(
@@ -682,6 +692,56 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Foto "Principal" del vehículo; mientras carga, sin foto o si falla, el
+/// ícono del auto.
+class _VehicleThumbnail extends StatefulWidget {
+  final Future<String?> Function() load;
+
+  const _VehicleThumbnail({super.key, required this.load});
+
+  @override
+  State<_VehicleThumbnail> createState() => _VehicleThumbnailState();
+}
+
+class _VehicleThumbnailState extends State<_VehicleThumbnail> {
+  late final Future<String?> _url = widget.load();
+
+  static const Widget _placeholder = Center(
+    child: Icon(
+      Icons.directions_car_outlined,
+      color: ServiceOrderColors.mutedText,
+      size: 22,
+    ),
+  );
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 44,
+      height: 44,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: ServiceOrderColors.tile,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: FutureBuilder<String?>(
+        future: _url,
+        builder: (context, snapshot) {
+          final url = snapshot.data;
+          if (url == null) return _placeholder;
+          return Image.network(
+            url,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, progress) =>
+                progress == null ? child : _placeholder,
+            errorBuilder: (context, error, stackTrace) => _placeholder,
+          );
+        },
       ),
     );
   }
