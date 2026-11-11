@@ -13,10 +13,35 @@ class AppDrawer extends StatelessWidget {
   static const Color _red = Color(0xFFF26D6D);
   static const Color _cyan = Color(0xFF4FC3E8);
 
-  /// Pestaña de Agenda en [HomePage].
+  /// Pestañas de [HomePage].
+  static const int _homeTab = 0;
   static const int _agendaTab = 1;
 
-  const AppDrawer({super.key});
+  /// Pestaña visible cuando el menú se abre dentro de [HomePage].
+  final int? homeTab;
+
+  /// Cambia de pestaña dentro de [HomePage] sin volver a abrir la pantalla.
+  /// Sin él (p. ej. desde Servicios), Inicio y Agenda abren [HomePage].
+  final ValueChanged<int>? onHomeTab;
+
+  const AppDrawer({super.key, this.homeTab, this.onHomeTab});
+
+  /// Inicio y Agenda son pestañas de [HomePage]: dentro de ella solo se
+  /// cambia de pestaña; desde otra pantalla se abre en esa pestaña.
+  void _openHomeTab(BuildContext context, int tab) {
+    final onHomeTab = this.onHomeTab;
+    if (onHomeTab == null) {
+      _navigate(
+        context,
+        AppConstants.homeRoute,
+        clearStack: true,
+        arguments: tab,
+      );
+      return;
+    }
+    Navigator.of(context).pop();
+    onHomeTab(tab);
+  }
 
   /// Con [arguments] la ruta se vuelve a abrir aunque sea la actual (p. ej.
   /// para cambiar de pestaña en Inicio).
@@ -113,23 +138,17 @@ class AppDrawer extends StatelessWidget {
                     icon: Icons.home_outlined,
                     color: ServiceOrderColors.accent,
                     label: 'Inicio',
-                    selected: currentRoute == AppConstants.homeRoute,
-                    onTap: () => _navigate(
-                      context,
-                      AppConstants.homeRoute,
-                      clearStack: true,
-                    ),
+                    selected: onHomeTab != null
+                        ? homeTab == _homeTab
+                        : currentRoute == AppConstants.homeRoute,
+                    onTap: () => _openHomeTab(context, _homeTab),
                   ),
                   _DrawerItem(
                     icon: Icons.event_note_outlined,
                     color: _cyan,
                     label: 'Agenda',
-                    onTap: () => _navigate(
-                      context,
-                      AppConstants.homeRoute,
-                      clearStack: true,
-                      arguments: _agendaTab,
-                    ),
+                    selected: onHomeTab != null && homeTab == _agendaTab,
+                    onTap: () => _openHomeTab(context, _agendaTab),
                   ),
                   _DrawerItem(
                     icon: Icons.assignment_turned_in_outlined,
