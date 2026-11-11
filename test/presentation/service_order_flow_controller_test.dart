@@ -423,6 +423,126 @@ void main() {
     expect(await storage.keyFor('42'), isNot(first));
     await storage.clear();
   });
+
+  group('fotos al tomarlas', () {
+    final photo = Uint8List.fromList([1, 2, 3]);
+
+    test('se sube al instante y "Siguiente" no la reenvía', () async {
+      final controller = controllerFor(scheduledOrder(
+        status: ServiceOrderStatus.borrador,
+        codeValidated: true,
+      ));
+      await controller.load();
+
+      await controller.uploadPhoto('tablero_inicio', 'Tablero', photo);
+      expect(repository.uploads.single.$1, 'tablero_inicio');
+      expect(controller.uploadingPhotos, isEmpty);
+      expect(controller.failedPhotos, isEmpty);
+
+      await controller.saveChecklist(
+        answers: const [],
+        photos: {'tablero_inicio': ('Tablero', photo)},
+      );
+      expect(repository.uploads, hasLength(1));
+      controller.dispose();
+    });
+
+    test('si falla queda para reintentar', () async {
+      final controller = controllerFor(scheduledOrder(
+        status: ServiceOrderStatus.borrador,
+        codeValidated: true,
+      ));
+      await controller.load();
+      repository.failures['upload'] =
+          const NetworkFailure('Sin conexión al servidor');
+
+      await controller.uploadPhoto('tablero_inicio', 'Tablero', photo);
+      expect(controller.failedPhotos,
+          {'tablero_inicio': 'Sin conexión al servidor'});
+
+      await controller.retryPhoto('tablero_inicio');
+      expect(controller.failedPhotos, isEmpty);
+      expect(repository.uploads, hasLength(2));
+      controller.dispose();
+    });
+
+    test('"Siguiente" vuelve a enviar la que falló', () async {
+      final controller = controllerFor(scheduledOrder(
+        status: ServiceOrderStatus.borrador,
+        codeValidated: true,
+      ));
+      await controller.load();
+      repository.failures['upload'] = const NetworkFailure('Sin conexión');
+      await controller.uploadPhoto('tablero_inicio', 'Tablero', photo);
+
+      await controller.saveChecklist(
+        answers: const [],
+        photos: {'tablero_inicio': ('Tablero', photo)},
+      );
+      expect(repository.uploads, hasLength(2));
+      expect(controller.failedPhotos, isEmpty);
+      controller.dispose();
+    });
+
+    test('quitarla antes de enviarla borra el error', () async {
+      final controller = controllerFor(scheduledOrder(
+        status: ServiceOrderStatus.borrador,
+        codeValidated: true,
+      ));
+      await controller.load();
+      repository.failures['upload'] = const NetworkFailure('Sin conexión');
+      await controller.uploadPhoto('tablero_inicio', 'Tablero', photo);
+
+      controller.discardPhoto('tablero_inicio');
+      expect(controller.failedPhotos, isEmpty);
+      await controller.retryPhoto('tablero_inicio');
+      expect(repository.uploads, hasLength(1));
+      controller.dispose();
+    });
+  });
+
+  group('al salir y volver a la app', () {
+    ServiceOrderRecord waitingTest(TestStatus status) => scheduledOrder(
+          status: ServiceOrderStatus.borrador,
+          codeValidated: true,
+          tests: [ServiceOrderTest(key: 'transmision', status: status)],
+        );
+
+    test('se pausa la consulta y al volver se recarga de inmediato', () async {
+      final controller = controllerFor(
+        waitingTest(TestStatus.solicitada),
+        pollInterval: const Duration(hours: 1),
+      );
+      await controller.load();
+      expect(controller.isPolling, isTrue);
+
+      controller.pause();
+      expect(controller.isPolling, isFalse);
+
+      repository.order = waitingTest(TestStatus.correcta);
+      final calls = repository.getOrderCalls;
+      await controller.resume();
+      expect(repository.getOrderCalls, calls + 1);
+      expect(
+          controller.order!.test('transmision')!.status, TestStatus.correcta);
+      expect(controller.isPolling, isFalse);
+      controller.dispose();
+    });
+
+    test('sin nada pendiente y de vuelta pronto no se recarga', () async {
+      final controller = controllerFor(scheduledOrder(
+        status: ServiceOrderStatus.borrador,
+        codeValidated: true,
+      ));
+      await controller.load();
+      final calls = repository.getOrderCalls;
+
+      controller.pause();
+      await controller.resume();
+      expect(repository.getOrderCalls, calls);
+      controller.dispose();
+    });
+  });
 }
 
 extension on ServiceOrderRecord {

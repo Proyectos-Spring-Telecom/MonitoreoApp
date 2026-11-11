@@ -81,11 +81,25 @@ class ServiceOrderFlowController extends ChangeNotifier {
   Timer? _pollTimer;
   bool _polling = false;
 
+  /// La app está oculta (otra app, otra pestaña o pantalla apagada).
+  bool _paused = false;
+  DateTime? _hiddenAt;
+
+  /// Tiempo fuera de la app tras el cual la orden se recarga al volver.
+  static const Duration staleAfter = Duration(seconds: 60);
+
   VerificationCodeRequest? _codeRequest;
   bool _codesExhausted = false;
 
   /// Bytes de cada foto o firma subida en esta sesión, para no reenviarla.
   final Map<String, Uint8List> _uploaded = {};
+
+  /// Fotos que se suben en cuanto se toman ([uploadPhoto]): la última de cada
+  /// clave, las que se están enviando y las que fallaron (con el error).
+  final Map<String, (String, Uint8List)> _pendingPhotos = {};
+  final Map<String, Future<void>> _photoQueue = {};
+  final Set<String> _uploadingPhotos = {};
+  final Map<String, String> _failedPhotos = {};
 
   ServiceOrderRecord? get order => _order;
   ServiceOrderCatalog? get catalog => _catalog;
@@ -96,6 +110,8 @@ class ServiceOrderFlowController extends ChangeNotifier {
   bool get isBusy => _isBusy;
   bool get isPolling => _pollTimer != null;
   VerificationCodeRequest? get codeRequest => _codeRequest;
+  Set<String> get uploadingPhotos => Set.unmodifiable(_uploadingPhotos);
+  Map<String, String> get failedPhotos => Map.unmodifiable(_failedPhotos);
   bool get codesExhausted => _codesExhausted;
 
   ServiceOrderStatus? get status => _order?.status;
@@ -227,18 +243,46 @@ class ServiceOrderFlowController extends ChangeNotifier {
 
   /// Sin push en el API: mientras se espera la autorización o el resultado de
   /// una prueba se consulta `GET /:id` cada [pollInterval].
-  void _updatePolling() {
+  bool get _isWaiting {
     final order = _order;
-    final waiting = order != null &&
+    return order != null &&
         order.status == ServiceOrderStatus.borrador &&
         (order.authorization == AuthorizationStatus.pendiente ||
             order.hasPendingTests);
+  }
+
+  void _updatePolling() {
+    final waiting = _isWaiting && !_paused;
     if (waiting && _pollTimer == null && !_disposed) {
       _pollTimer = Timer.periodic(pollInterval, (_) => _pollOnce());
     } else if (!waiting) {
       _pollTimer?.cancel();
       _pollTimer = null;
     }
+  }
+
+  /// La app quedó oculta: se detiene la consulta periódica (el navegador y
+  /// el sistema la frenan de todos modos).
+  void pause() {
+    if (_paused || _disposed) return;
+    _paused = true;
+    _hiddenAt = clock();
+    _pollTimer?.cancel();
+    _pollTimer = null;
+  }
+
+  /// La app volvió a verse: se reanuda la consulta y la orden se recarga si
+  /// se esperaba la autorización o una prueba, o si pasó [staleAfter].
+  Future<void> resume() async {
+    if (!_paused || _disposed) return;
+    _paused = false;
+    final hiddenAt = _hiddenAt;
+    _hiddenAt = null;
+    final away =
+        hiddenAt == null ? Duration.zero : clock().difference(hiddenAt);
+    final waiting = _isWaiting;
+    _updatePolling();
+    if (waiting || away >= staleAfter) await _pollOnce();
   }
 
   Future<void> _pollOnce() async {
@@ -327,6 +371,7 @@ class ServiceOrderFlowController extends ChangeNotifier {
     required String observations,
   }) =>
       _busy(() async {
+        await _photosSettled();
         if (photo != null) {
           await _upload(
             ServiceOrderSection.existingEquipmentPhoto,
@@ -376,6 +421,8 @@ class ServiceOrderFlowController extends ChangeNotifier {
               orderId,
               ServiceOrderUpdate(answers: answers),
             ));
+        // Las que fallaron al tomarlas se reintentan aquí.
+        await _photosSettled();
         for (final MapEntry(:key, value: (label, bytes)) in photos.entries) {
           await _upload(key, bytes, label);
         }
@@ -455,6 +502,63 @@ class ServiceOrderFlowController extends ChangeNotifier {
       });
 
   // ---------------------------------------------------------------------------
+  // Fotos
+
+  /// Sube la foto en cuanto se toma, sin esperar a "Siguiente": si el
+  /// navegador recarga la página (iOS al abrir la cámara) ya está en el
+  /// servidor. No lanza errores; quedan en [failedPhotos] para [retryPhoto]
+  /// y al guardar el paso se vuelve a intentar.
+  Future<void> uploadPhoto(String key, String label, Uint8List bytes) {
+    _pendingPhotos[key] = (label, bytes);
+    _failedPhotos.remove(key);
+    // Una foto a la vez por clave, para que la última sea la que quede.
+    final task = (_photoQueue[key] ?? Future<void>.value())
+        .then((_) => _uploadPending(key));
+    _photoQueue[key] = task;
+    return task;
+  }
+
+  Future<void> retryPhoto(String key) {
+    final pending = _pendingPhotos[key];
+    if (pending == null) return Future<void>.value();
+    final (label, bytes) = pending;
+    return uploadPhoto(key, label, bytes);
+  }
+
+  /// El técnico quitó la foto antes de que se enviara.
+  void discardPhoto(String key) {
+    _pendingPhotos.remove(key);
+    if (_failedPhotos.remove(key) != null) _notify();
+  }
+
+  Future<void> _uploadPending(String key) async {
+    final pending = _pendingPhotos[key];
+    if (pending == null || _disposed) return;
+    final (label, bytes) = pending;
+    if (isUploaded(key, bytes)) return;
+
+    _uploadingPhotos.add(key);
+    _notify();
+    try {
+      await _upload(key, bytes, label);
+      if (identical(_pendingPhotos[key]?.$2, bytes)) {
+        _pendingPhotos.remove(key);
+      }
+    } catch (e) {
+      if (identical(_pendingPhotos[key]?.$2, bytes)) {
+        _failedPhotos[key] =
+            e is Failure ? e.message : 'No se pudo enviar la foto.';
+      }
+    } finally {
+      _uploadingPhotos.remove(key);
+      _notify();
+    }
+  }
+
+  /// Espera a que terminen las fotos que se están enviando.
+  Future<void> _photosSettled() => Future.wait(_photoQueue.values.toList());
+
+  // ---------------------------------------------------------------------------
   // Utilidades
 
   bool isUploaded(String key, Uint8List bytes) {
@@ -468,6 +572,7 @@ class ServiceOrderFlowController extends ChangeNotifier {
       () => repository.uploadFile(orderId, key, bytes, label: label),
     );
     _uploaded[key] = bytes;
+    _failedPhotos.remove(key);
   }
 
   Future<void> _refreshQuietly() async {
