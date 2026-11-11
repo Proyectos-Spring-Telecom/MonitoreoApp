@@ -125,7 +125,7 @@ void main() {
     await pump(tester, const Scaffold(body: AgendaPage()));
 
     expect(find.text('EN CURSO'), findsOneWidget);
-    expect(find.text('PROGRAMADAS'), findsOneWidget);
+    expect(find.text('PROGRAMADAS'), findsNothing);
     expect(find.text('OS-00001'), findsOneWidget);
     expect(find.text('OS-00002'), findsOneWidget);
     expect(find.text('Transportes del Sur'), findsNWidgets(2));
