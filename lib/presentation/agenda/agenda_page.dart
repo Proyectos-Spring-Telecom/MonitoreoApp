@@ -155,7 +155,7 @@ class _AgendaPageState extends State<AgendaPage> {
             _AgendaCard(order: order, onTap: () => _open(order)),
         ],
         if (_scheduled.isNotEmpty) ...[
-          const _SectionTitle('Programadas'),
+          if (_inProgress.isNotEmpty) const SizedBox(height: 12),
           for (final order in _scheduled)
             _AgendaCard(order: order, onTap: () => _open(order)),
           if (_hasMoreScheduled)
