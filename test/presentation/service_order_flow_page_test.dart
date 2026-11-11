@@ -5,6 +5,9 @@ import 'package:monitoreo/core/constants/app_constants.dart';
 import 'package:monitoreo/core/errors/failures.dart';
 import 'package:monitoreo/data/datasources/local/order_key_storage.dart';
 import 'package:monitoreo/data/datasources/remote/installation_remote_datasource.dart';
+import 'package:monitoreo/data/datasources/remote/vehicle_remote_datasource.dart';
+import 'package:monitoreo/data/models/vehicle_request.dart';
+import 'package:monitoreo/domain/repositories/catalog_repository.dart';
 import 'package:monitoreo/domain/entities/installation_resources.dart';
 import 'package:monitoreo/domain/entities/service_order.dart';
 import 'package:monitoreo/domain/entities/service_order_record.dart';
@@ -42,9 +45,41 @@ class _FakeStock implements InstallationRemoteDataSource {
       );
 }
 
+/// Ninguna placa existe; registra los vehículos que se crean.
+class _FakeVehicles implements VehicleRemoteDataSource {
+  final created = <VehicleRequest>[];
+
+  @override
+  Future<VehicleLookup?> findByPlate(String plate) async => null;
+
+  @override
+  Future<String?> createVehicle(
+    VehicleRequest request, {
+    Map<String, String> fileLabels = const {},
+  }) async {
+    created.add(request);
+    return '900';
+  }
+
+  @override
+  Future<void> updateVehicle(
+    String vehicleId,
+    VehicleRequest request, {
+    Map<String, String> fileLabels = const {},
+  }) async {}
+}
+
+/// Sin catálogos de vehículo: el alta sigue solo con la placa.
+class _NoCatalogs implements CatalogRepository {
+  @override
+  dynamic noSuchMethod(Invocation invocation) =>
+      Future<Never>.error(const ServerFailure('Sin catálogos'));
+}
+
 void main() {
   late FakeServiceOrderRepository repository;
   late MemoryOrderKeyStorage keys;
+  late _FakeVehicles vehicles;
 
   Future<void> pump(WidgetTester tester, Widget home) async {
     tester.view.physicalSize = const Size(390, 1600);
@@ -59,6 +94,10 @@ void main() {
         Provider<ServiceOrderRepository>.value(value: repository),
         Provider<OrderKeyStorage>.value(value: keys),
         Provider<InstallationRemoteDataSource>.value(value: _FakeStock()),
+        Provider<VehicleRemoteDataSource>.value(
+          value: vehicles = _FakeVehicles(),
+        ),
+        Provider<CatalogRepository>.value(value: _NoCatalogs()),
         ChangeNotifierProvider<AuthController>.value(value: auth),
       ],
       child: MaterialApp(
@@ -317,5 +356,26 @@ void main() {
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
     expect(find.byType(ServiceOrderFlowPage), findsNothing);
+  });
+
+  testWidgets('alta: sin las 6 fotos no se registra el vehículo',
+      (tester) async {
+    await openOrder(
+      tester,
+      scheduledOrder(
+        type: ServiceType.instalacion,
+        status: ServiceOrderStatus.borrador,
+      ),
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'NV4126B');
+    await tapVisible(tester, find.text('Buscar vehículo'));
+    expect(find.text('Fotografías del vehículo *'), findsOneWidget);
+    expect(find.text('0/6'), findsOneWidget);
+
+    await tapVisible(
+        tester, find.widgetWithText(ElevatedButton, 'Registrar vehículo'));
+    expect(vehicles.created, isEmpty);
+    expect(find.text('Faltan 6 fotografías del vehículo.'), findsOneWidget);
   });
 }

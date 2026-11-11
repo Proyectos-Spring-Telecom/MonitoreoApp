@@ -14,15 +14,22 @@ import '../../service_order/widgets/service_order_fields.dart';
 import '../../service_order/widgets/service_order_ui.dart';
 import '../order_models.dart';
 
+/// Abre el PDF descargado; `false` si no hay con qué abrirlo.
+typedef PdfOpener = Future<bool> Function(Uint8List bytes, String filename);
+
 /// Descarga `GET /:id/pdf` (cualquier estado) y lo abre con el visor del
-/// teléfono; en el navegador queda en las descargas.
+/// teléfono; en el navegador queda en las descargas. [opener] solo se
+/// reemplaza en las pruebas.
 Future<void> openOrderPdf(
-    BuildContext context, ServiceOrderRecord order) async {
+  BuildContext context,
+  ServiceOrderRecord order, {
+  @visibleForTesting PdfOpener opener = openPdf,
+}) async {
   final repository = context.read<ServiceOrderRepository>();
   AppMessage.show(context, 'Descargando PDF…');
   try {
     final bytes = await repository.downloadPdf(order.id);
-    final opened = await openPdf(bytes, '${order.folio}.pdf');
+    final opened = await opener(bytes, '${order.folio}.pdf');
     if (!context.mounted) return;
     if (!opened) {
       AppMessage.error(context, 'No hay una aplicación para abrir el PDF.');

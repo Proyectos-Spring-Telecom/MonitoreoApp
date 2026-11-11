@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
@@ -5,6 +6,12 @@ class AppTheme {
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
+      // En web, Roboto (incluida en la app) para todos los textos. En iOS,
+      // Flutter pide la fuente del sistema de Apple, que en el navegador no
+      // existe, y cada carácter se busca en otras fuentes: en algunos
+      // iPhone los números salían con otra fuente, separados y partidos.
+      // En el teléfono se deja la fuente del sistema.
+      fontFamily: kIsWeb ? 'Roboto' : null,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primaryBlue,
         secondary: AppColors.primaryRed,

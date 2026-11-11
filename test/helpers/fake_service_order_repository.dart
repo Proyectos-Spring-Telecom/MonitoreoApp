@@ -58,6 +58,7 @@ ServiceOrderRecord scheduledOrder({
   List<ServiceOrderTest> tests = const [],
   List<ServiceOrderAnswer> answers = const [],
   String? origin = 'agenda',
+  DateTime? appointment,
 }) =>
     ServiceOrderRecord(
       id: id,
@@ -66,7 +67,7 @@ ServiceOrderRecord scheduledOrder({
       scheduledTypeKey: type.key,
       statusKey: status.key,
       origin: origin,
-      appointment: DateTime.utc(2026, 10, 30, 16),
+      appointment: appointment ?? DateTime.utc(2026, 10, 30, 16),
       clientId: '12',
       clientName: 'Transportes del Sur',
       plate: 'ABC1234',

@@ -10,11 +10,16 @@ import '../../domain/repositories/service_order_repository.dart';
 import '../orders/order_models.dart';
 import '../service_order/widgets/service_order_summary.dart';
 import '../service_order/widgets/service_order_ui.dart';
+import 'agenda_calendar.dart';
 
 /// Agenda del técnico: órdenes en curso (`borrador`) y programadas
-/// (`programada`, por cita). El API ya filtra por el técnico del token.
+/// (`programada`, por cita) en un calendario. El API ya filtra por el
+/// técnico del token.
 class AgendaPage extends StatefulWidget {
-  const AgendaPage({super.key});
+  /// Hoy, para el calendario; las pruebas lo fijan.
+  final DateTime Function() now;
+
+  const AgendaPage({super.key, this.now = DateTime.now});
 
   @override
   State<AgendaPage> createState() => _AgendaPageState();
@@ -22,6 +27,10 @@ class AgendaPage extends StatefulWidget {
 
 class _AgendaPageState extends State<AgendaPage> {
   static const int _pageSize = 50;
+
+  /// Páginas de programadas que se cargan de una vez para llenar el
+  /// calendario; si hay más, aparece "Ver más".
+  static const int _maxInitialPages = 10;
 
   late final ServiceOrderRepository _repository;
   List<ServiceOrderRecord> _inProgress = const [];
@@ -52,12 +61,27 @@ class _AgendaPageState extends State<AgendaPage> {
           limit: _pageSize,
         ),
       ]);
+      // El calendario necesita todas las programadas, no solo la primera
+      // página.
+      var scheduled = results[1];
+      final items = [...scheduled.items];
+      final known = items.map((order) => order.id).toSet();
+      while (scheduled.hasMore &&
+          scheduled.items.isNotEmpty &&
+          scheduled.page < _maxInitialPages) {
+        scheduled = await _repository.listOrders(
+          status: ServiceOrderStatus.programada,
+          page: scheduled.page + 1,
+          limit: _pageSize,
+        );
+        items.addAll(scheduled.items.where((order) => known.add(order.id)));
+      }
       if (!mounted) return;
       setState(() {
         _inProgress = results[0].items;
-        _scheduled = results[1].items;
-        _scheduledPage = results[1].page;
-        _hasMoreScheduled = results[1].hasMore;
+        _scheduled = items;
+        _scheduledPage = scheduled.page;
+        _hasMoreScheduled = scheduled.hasMore && scheduled.items.isNotEmpty;
       });
     } catch (e) {
       if (mounted) setState(() => _error = _message(e));
@@ -156,8 +180,11 @@ class _AgendaPageState extends State<AgendaPage> {
         ],
         if (_scheduled.isNotEmpty) ...[
           if (_inProgress.isNotEmpty) const SizedBox(height: 12),
-          for (final order in _scheduled)
-            _AgendaCard(order: order, onTap: () => _open(order)),
+          AgendaCalendar(
+            orders: _scheduled,
+            onOpen: _open,
+            now: widget.now,
+          ),
           if (_hasMoreScheduled)
             Padding(
               padding: const EdgeInsets.only(top: 8),

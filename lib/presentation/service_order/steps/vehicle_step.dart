@@ -71,6 +71,7 @@ class _VehicleStepState extends State<VehicleStep> {
   final _observationsController = TextEditingController();
   final Map<String, Uint8List> _photos = {};
   final Map<String, Uint8List> _equipmentPhoto = {};
+  final _photosKey = GlobalKey();
 
   _SearchState _search = _SearchState.idle;
   VehicleLookup? _found;
@@ -163,6 +164,12 @@ class _VehicleStepState extends State<VehicleStep> {
 
   /// `POST /productos/vehiculos` con el cliente de la orden; el id que
   /// devuelve se fija en la orden.
+  /// Las 6 fotos del vehículo son obligatorias: se toman en la instalación.
+  List<ServiceOrderPhotoSlot> get _missingPhotos => [
+        for (final slot in _photoSlots)
+          if (!_photos.containsKey(slot.id)) slot
+      ];
+
   Future<void> _createVehicle() async {
     final controller = context.read<ServiceOrderFlowController>();
     final dataSource = context.read<VehicleRemoteDataSource>();
@@ -170,6 +177,24 @@ class _VehicleStepState extends State<VehicleStep> {
     if (clientId == null) {
       showServiceOrderMessage(context, 'La orden no tiene cliente.',
           isError: true);
+      return;
+    }
+    final missing = _missingPhotos;
+    if (missing.isNotEmpty) {
+      setState(() => _showErrors = true);
+      if (_photosKey.currentContext case final target?) {
+        Scrollable.ensureVisible(
+          target,
+          duration: const Duration(milliseconds: 300),
+          alignment: 0.05,
+        );
+      }
+      showServiceOrderMessage(
+        context,
+        'Faltan fotografías del vehículo: '
+        '${missing.map((slot) => slot.label).join(', ')}.',
+        isError: true,
+      );
       return;
     }
     final ok = await runOrderAction(context, () async {
@@ -432,7 +457,8 @@ class _VehicleStepState extends State<VehicleStep> {
           const SizedBox(height: 8),
           Text(
             'No hay un vehículo con la placa $_plate. Se dará de alta para '
-            'el cliente de la orden; los demás datos son opcionales.',
+            'el cliente de la orden. Las fotografías son obligatorias; los '
+            'demás datos, opcionales.',
             style: const TextStyle(
               color: ServiceOrderColors.mutedText,
               fontSize: 14,
@@ -522,22 +548,56 @@ class _VehicleStepState extends State<VehicleStep> {
             isLast: true,
           ),
           const SizedBox(height: 16),
-          const Text(
-            'Fotografías del vehículo (opcional)',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
-            ),
+          Row(
+            key: _photosKey,
+            children: [
+              const Expanded(
+                child: Text(
+                  'Fotografías del vehículo *',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Text(
+                '${_photos.length}/${_photoSlots.length}',
+                style: const TextStyle(
+                  color: ServiceOrderColors.mutedText,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           ServiceOrderPhotoGrid(
-            slots: _photoSlots,
+            slots: [
+              for (final slot in _photoSlots)
+                ServiceOrderPhotoSlot(slot.id, '${slot.label} *', slot.icon),
+            ],
             photos: _photos,
             onChanged: (slot, bytes) => setState(() {
               bytes == null ? _photos.remove(slot) : _photos[slot] = bytes;
             }),
           ),
+          if (_showErrors && _missingPhotos.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 10),
+              child: Text(
+                _missingPhotos.length == 1
+                    ? 'Falta 1 fotografía del vehículo.'
+                    : 'Faltan ${_missingPhotos.length} fotografías del '
+                        'vehículo.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: AppColors.error,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
           const SizedBox(height: 16),
           ElevatedButton(
             onPressed: controller.isBusy ? null : _createVehicle,

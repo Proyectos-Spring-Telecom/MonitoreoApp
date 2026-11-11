@@ -33,7 +33,7 @@ flutter run
 
 ## Versión web (PWA)
 
-La app también se publica como PWA en `https://springtelecom.mx/instaladores/`.
+La app también se publica como PWA en `https://springtelecom.mx/ordenservicioapp/`.
 
 Probar en local (Chrome):
 
@@ -41,15 +41,17 @@ Probar en local (Chrome):
 flutter run -d chrome
 ```
 
-Compilar para publicar:
+Compilar para publicar (siempre con el script):
 
 ```bash
-flutter build web --release --base-href /instaladores/
+tool/build_web.sh
 ```
 
-- El resultado queda en `build/web/`. Se sube completo a la carpeta que nginx sirve en `/instaladores/`.
-- Las rutas usan `#` (`/instaladores/#/home`), así que nginx no necesita reglas de reescritura.
-- Otro API: agrega `--dart-define=API_BASE_URL=https://...`.
+- El resultado queda en `build/web/`. Se sube completo a la carpeta que nginx sirve en `/ordenservicioapp/`.
+- Otra ruta: `BASE_HREF=/otra-ruta/ tool/build_web.sh`. Otro API: agrega `--dart-define=API_BASE_URL=https://...`.
+- Las rutas usan `#` (`/ordenservicioapp/#/home`), así que nginx no necesita reglas de reescritura.
+- La app abre sin conexión (service worker en `web/sw.js`) y avisa cuando se publica una versión nueva.
 - Para instalarla: en Android, Chrome ofrece **Instalar app**. En iPhone, Safari → Compartir → **Agregar a inicio**.
 - Requiere HTTPS: sin él, el navegador no permite instalarla ni usar la ubicación o la cámara.
+- Configuración de nginx, seguridad y verificación: [docs/PUBLICACION_WEB.md](docs/PUBLICACION_WEB.md).
 - Nombre, colores e íconos de la PWA: `web/manifest.json`, `web/index.html` y `web/icons/`.
