@@ -1,8 +1,30 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import '../constants/app_colors.dart';
 
 class AppTheme {
+  /// Transiciones entre pantallas. Son las mismas que usa Flutter por
+  /// defecto, pero con el fondo oscuro de la app: en Android (y Windows/Linux)
+  /// la pantalla que sale se desvanece sobre `colorScheme.surface`, que aquí
+  /// es blanco, y se veía un destello blanco al abrir cualquier pantalla.
+  /// iOS y macOS conservan su transición deslizante, que no pinta fondo.
+  static const PageTransitionsTheme pageTransitions = PageTransitionsTheme(
+    builders: <TargetPlatform, PageTransitionsBuilder>{
+      TargetPlatform.android: PredictiveBackPageTransitionsBuilder(
+        fallbackColor: AppColors.backgroundDark,
+      ),
+      TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.macOS: CupertinoPageTransitionsBuilder(),
+      TargetPlatform.windows: ZoomPageTransitionsBuilder(
+        backgroundColor: AppColors.backgroundDark,
+      ),
+      TargetPlatform.linux: ZoomPageTransitionsBuilder(
+        backgroundColor: AppColors.backgroundDark,
+      ),
+    },
+  );
+
   static ThemeData get lightTheme {
     return ThemeData(
       useMaterial3: true,
@@ -12,6 +34,7 @@ class AppTheme {
       // iPhone los números salían con otra fuente, separados y partidos.
       // En el teléfono se deja la fuente del sistema.
       fontFamily: kIsWeb ? 'Roboto' : null,
+      pageTransitionsTheme: pageTransitions,
       colorScheme: const ColorScheme.light(
         primary: AppColors.primaryBlue,
         secondary: AppColors.primaryRed,
