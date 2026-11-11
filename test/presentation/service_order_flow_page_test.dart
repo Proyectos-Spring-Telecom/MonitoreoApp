@@ -292,4 +292,30 @@ void main() {
     expect(find.text('Orden no cumplida'), findsOneWidget);
     expect(find.text('Compartir PDF'), findsOneWidget);
   });
+
+  testWidgets('atrás del sistema o del navegador regresa un paso',
+      (tester) async {
+    await openOrder(
+      tester,
+      scheduledOrder(status: ServiceOrderStatus.borrador, codeValidated: true),
+    );
+    final controller = controllerOf(tester);
+    controller.goTo(ServiceOrderStep.tests);
+    await tester.pumpAndSettle();
+    final index = controller.stepIndex;
+
+    // Lo mismo que hace el botón atrás de Android o del navegador.
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServiceOrderFlowPage), findsOneWidget);
+    expect(controller.stepIndex, index - 1);
+    expect(controller.currentStep, ServiceOrderStep.checklist);
+
+    // En el primer paso sí sale de la orden.
+    controller.goTo(controller.steps.first);
+    await tester.pumpAndSettle();
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    expect(find.byType(ServiceOrderFlowPage), findsNothing);
+  });
 }

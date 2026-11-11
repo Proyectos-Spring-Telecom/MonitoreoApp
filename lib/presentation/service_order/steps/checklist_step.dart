@@ -226,6 +226,8 @@ class _ChecklistStepState extends State<ChecklistStep> {
     List<ServiceOrderOption> options,
   ) {
     if (options.isEmpty) return const SizedBox.shrink();
+    // [build] ya escucha al controlador; aquí basta con leerlo.
+    final controller = context.read<ServiceOrderFlowController>();
     final missing = options
         .where((o) =>
             o.required &&
@@ -286,9 +288,22 @@ class _ChecklistStepState extends State<ChecklistStep> {
             },
             crossAxisCount: options.length == 1 ? 1 : 2,
             childAspectRatio: options.length == 1 ? 2.4 : 1.35,
-            onChanged: (slot, bytes) => setState(() {
-              bytes == null ? _photos.remove(slot) : _photos[slot] = bytes;
-            }),
+            uploading: controller.uploadingPhotos,
+            failed: controller.failedPhotos.keys.toSet(),
+            onRetry: controller.retryPhoto,
+            onChanged: (slot, bytes) {
+              setState(() {
+                bytes == null ? _photos.remove(slot) : _photos[slot] = bytes;
+              });
+              // Se sube al tomarla; "Siguiente" reintenta las que fallaron.
+              if (bytes == null) {
+                controller.discardPhoto(slot);
+              } else {
+                final name =
+                    options.where((o) => o.key == slot).firstOrNull?.name;
+                controller.uploadPhoto(slot, name ?? slot, bytes);
+              }
+            },
           ),
           if (_showErrors && missing > 0)
             Padding(

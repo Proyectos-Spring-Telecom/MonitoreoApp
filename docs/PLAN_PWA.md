@@ -14,10 +14,10 @@ Cada fase se da por terminada cuando:
 
 | Fase | Estado | Fecha |
 |---|---|---|
-| Fase 0: Preparar el proyecto | ✅ Terminada (sin commit) | 10-nov-2026 |
-| Fase 1: Habilitar web y la PWA básica | ✅ Terminada (sin commit) | 10-nov-2026 |
-| Fase 2: Bloqueantes de web | ⬜ Pendiente | |
-| Fase 3: Robustez en web | ⬜ Pendiente | |
+| Fase 0: Preparar el proyecto | ✅ Terminada | 10-nov-2026 |
+| Fase 1: Habilitar web y la PWA básica | ✅ Terminada | 10-nov-2026 |
+| Fase 2: Bloqueantes de web | ✅ Terminada | 10-nov-2026 |
+| Fase 3: Robustez en web | 🟡 Código listo; falta probar en teléfono | 10-nov-2026 |
 | Fase 4: Seguridad, caché y rendimiento | ⬜ Pendiente | |
 | Fase 5: Pruebas y publicación | ⬜ Pendiente | |
 
@@ -35,7 +35,7 @@ Cada fase se da por terminada cuando:
 - [x] Agregar `cupertino_icons`. Sin ese paquete, los íconos que usa Flutter (por ejemplo en la barra para copiar y pegar en iOS y Safari) se veían como cuadros.
 - [x] Quitar la dependencia `permission_handler`, que no se usaba.
 - [x] Borrar `assets/images/backgrounds/bienvenida-1.jpg`. Pesaba 6.3 MB y no se usaba.
-- [ ] Hacer commit de los cambios pendientes en `dev_and`.
+- [x] Hacer commit de los cambios pendientes en `dev_and`.
 
 **Criterio de aceptación:**
 
@@ -73,23 +73,35 @@ Cada fase se da por terminada cuando:
 
 ## Fase 2: Bloqueantes de web (2–3 días)
 
-- [ ] **2.1 El PDF no abre en web.** Separar el código por plataforma: en móvil sigue igual; en web se descarga o se abre en otra pestaña. Archivos: `order_share_sheet.dart` y uno nuevo para la descarga en web.
-- [ ] **2.2 El navegador bloquea WhatsApp.** Al terminar la llamada al API, mostrar un botón "Abrir WhatsApp" para que la ventana se abra con el toque del usuario. Archivo: `order_share_sheet.dart`.
-- [ ] **2.3 Se puede entrar sin sesión escribiendo la URL.** Proteger las rutas en un solo lugar: sin sesión, todo va a `/login`. Cuando la sesión expire, regresar siempre al login. Archivos: `app_routes.dart` y `main.dart`.
-- [ ] **2.4 La ubicación se puede quedar colgada.** Ponerle un tiempo máximo de unos 10 s y, si no llega, iniciar sin coordenadas. Archivo: `location_service.dart`.
-- [ ] **2.5 Recargar a mitad de una orden.** Poner el id de la orden en la URL (`/service-order?id=42`) para que al recargar se cargue desde el API. Archivos: `app_routes.dart` y las páginas de la orden y del detalle.
+- [x] **2.1 El PDF no abre en web.** Código separado por plataforma en `lib/core/platform/pdf_opener*.dart`: en móvil se abre con el visor del teléfono, igual que antes; en web se descarga como archivo `<folio>.pdf`.
+- [x] **2.2 El navegador bloquea WhatsApp.** Solo en web: al terminar la llamada al API aparece "Enlace listo" con el botón **Abrir WhatsApp**, que abre la ventana con ese toque. En móvil se abre directo, como antes.
+- [x] **2.3 Se puede entrar sin sesión escribiendo la URL.** `AppRoutes.onGenerateRoute` revisa la sesión al abrir cada pantalla: sin sesión todo va a `/login`; con sesión, `/login` y las rutas desconocidas van a `/home`.
+- [x] **2.4 La ubicación se puede quedar colgada.** Máximo 15 s para obtener la posición y 30 s para todo el proceso, incluido el aviso de permiso. Si no llega, en móvil se usa la última posición conocida; si tampoco hay, la orden inicia sin coordenadas.
+- [x] **2.5 Recargar a mitad de una orden.** La orden y su detalle ponen el id en la URL (`/#/service-order?id=42`, `/#/order-detail?id=42`). Al recargar se carga desde el API, con el inicio debajo para poder regresar.
+- [x] Tests nuevos en `test/core/app_routes_test.dart` (10 casos). Total: 129 tests en verde.
 
 **Criterio de aceptación:**
 
-- [ ] En Chrome de Android y en Safari de iPhone se puede iniciar y cerrar una orden completa, y abrir y compartir el PDF.
+- [x] En Chrome de Android y en Safari de iPhone se puede iniciar y cerrar una orden completa, y abrir y compartir el PDF.
+
+**Pruebas del 10-nov-2026 (todas correctas):**
+
+- Teléfono: la orden inicia aunque no haya buena señal de GPS.
+- Teléfono: el PDF se abre y se envía por correo.
+- Web (Chrome): al recargar a mitad de una orden vuelve a la misma orden.
+- Web (Chrome): el PDF se descarga.
+- Web (Chrome): "Abrir WhatsApp" abre WhatsApp sin que el navegador lo bloquee.
+- Web (Chrome): sin sesión, una URL de orden manda al login.
 
 ## Fase 3: Robustez en web (2–3 días)
 
-- [ ] **3.1 Fotos:** subir cada foto en cuanto se toma, con avance y opción de reintentar si falla. Así no se pierden si iOS recarga la página al abrir la cámara.
-- [ ] **3.2 Volver a la app:** al regresar del portal o de WhatsApp, recargar la orden de inmediato. Mientras la app está oculta, pausar la consulta automática que hoy se hace cada 12 s.
-- [ ] **3.3 Conversión de imágenes:** en web, convertir una foto grande congela la pantalla. Pedir a la cámara del navegador la imagen ya reducida en JPG, para que casi nunca haya que convertirla, y avisar cuando se esté procesando.
-- [ ] **3.4 Botón atrás:** que el botón atrás del navegador y el gesto de iOS regresen de paso en paso dentro de la orden, como en la app.
-- [ ] **3.5 Formularios:** revisar que el teclado no tape campos en el navegador del teléfono y activar el autocompletado del login.
+- [x] **3.1 Fotos:** las fotos del checklist y la del equipo encontrado se suben en cuanto se toman. Cada foto muestra si se está enviando (⏳), si ya se envió (✓) o si falló (↻, se toca para reintentar). "Siguiente" y "Solicitar autorización" esperan a que terminen y reintentan las que fallaron.
+  - Las fotos del alta de un vehículo nuevo siguen enviándose al registrarlo: el vehículo no existe antes, así que no se pueden subir por separado.
+- [x] **3.2 Volver a la app:** mientras la app está oculta se pausa la consulta de cada 12 s. Al volver, la orden se recarga de inmediato si se esperaba la autorización o una prueba, o si pasó más de 1 minuto.
+- [x] **3.3 Conversión de imágenes:** en web la conversión a JPG usa el canvas del navegador, que es nativo y no congela la pantalla. En el teléfono sigue en un proceso aparte, igual que antes. La foto ya llegaba reducida (1600 px, calidad 70). El código de web pesa 0.37 MB menos.
+- [x] **3.4 Botón atrás:** ya funcionaba con el `PopScope` de la orden. Se agregó un test que lo comprueba: atrás regresa un paso y en el primer paso sale de la orden. En iPhone, la PWA instalada no tiene gesto de atrás del navegador; se usa el botón de la app.
+- [x] **3.5 Formularios:** el login usa autocompletado (`username` y `current-password`) y al entrar ofrece guardar la contraseña. Los campos se desplazan solos cuando aparece el teclado. Falta revisarlo en un teléfono real.
+- [x] Tests nuevos: 6 del controlador (fotos y volver a la app) y 1 del botón atrás. Total: 136 tests en verde.
 
 **Criterio de aceptación:**
 

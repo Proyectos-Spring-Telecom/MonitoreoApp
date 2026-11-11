@@ -199,9 +199,14 @@ class _VehicleStepState extends State<VehicleStep> {
   }
 
   Future<void> _requestAuthorization() async {
+    final controller = context.read<ServiceOrderFlowController>();
     final photo = _equipmentPhoto[ServiceOrderSection.existingEquipmentPhoto];
+    // Ya enviada (se sube al tomarla), aunque la página se haya recargado.
+    final hasPhoto = photo != null ||
+        controller.order?.file(ServiceOrderSection.existingEquipmentPhoto) !=
+            null;
     final observations = _observationsController.text.trim();
-    if (photo == null || observations.isEmpty) {
+    if (!hasPhoto || observations.isEmpty) {
       setState(() => _showErrors = true);
       showServiceOrderMessage(
         context,
@@ -210,7 +215,6 @@ class _VehicleStepState extends State<VehicleStep> {
       );
       return;
     }
-    final controller = context.read<ServiceOrderFlowController>();
     await runOrderAction(
       context,
       () => controller.requestAuthorization(
@@ -635,11 +639,22 @@ class _VehicleStepState extends State<VehicleStep> {
                 },
                 crossAxisCount: 1,
                 childAspectRatio: 2.4,
-                onChanged: (slot, bytes) => setState(() {
-                  bytes == null
-                      ? _equipmentPhoto.remove(slot)
-                      : _equipmentPhoto[slot] = bytes;
-                }),
+                uploading: controller.uploadingPhotos,
+                failed: controller.failedPhotos.keys.toSet(),
+                onRetry: controller.retryPhoto,
+                onChanged: (slot, bytes) {
+                  setState(() {
+                    bytes == null
+                        ? _equipmentPhoto.remove(slot)
+                        : _equipmentPhoto[slot] = bytes;
+                  });
+                  // Se sube al tomarla; la solicitud reintenta si falló.
+                  if (bytes == null) {
+                    controller.discardPhoto(slot);
+                  } else {
+                    controller.uploadPhoto(slot, 'Equipo encontrado', bytes);
+                  }
+                },
               ),
               const SizedBox(height: 14),
               ServiceOrderTextField(

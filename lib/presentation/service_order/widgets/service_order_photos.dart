@@ -28,6 +28,13 @@ class ServiceOrderPhotoGrid extends StatelessWidget {
   final int crossAxisCount;
   final double childAspectRatio;
 
+  /// Fotos que se están enviando y las que fallaron (se suben al tomarlas).
+  final Set<String> uploading;
+  final Set<String> failed;
+
+  /// Vuelve a enviar una foto de [failed].
+  final void Function(String slotId)? onRetry;
+
   const ServiceOrderPhotoGrid({
     super.key,
     required this.slots,
@@ -36,6 +43,9 @@ class ServiceOrderPhotoGrid extends StatelessWidget {
     this.remoteUrls = const {},
     this.crossAxisCount = 2,
     this.childAspectRatio = 1.35,
+    this.uploading = const {},
+    this.failed = const {},
+    this.onRetry,
   });
 
   Future<void> _pickPhoto(
@@ -109,6 +119,12 @@ class ServiceOrderPhotoGrid extends StatelessWidget {
                   'Elegir de la galería',
                   () => _pickPhoto(context, slot, ImageSource.gallery),
                 ),
+                if (failed.contains(slot.id) && onRetry != null)
+                  option(
+                    Icons.cloud_upload_outlined,
+                    'Reintentar envío',
+                    () => onRetry!(slot.id),
+                  ),
                 if (hasLocal)
                   option(
                     Icons.delete_outline,
@@ -139,25 +155,76 @@ class ServiceOrderPhotoGrid extends StatelessWidget {
             slot: slot,
             bytes: photos[slot.id],
             remoteUrl: remoteUrls[slot.id],
+            status: uploading.contains(slot.id)
+                ? _UploadStatus.uploading
+                : failed.contains(slot.id)
+                    ? _UploadStatus.failed
+                    : _UploadStatus.done,
             onTap: () => _showOptions(context, slot),
+            onRetry: onRetry == null ? null : () => onRetry!(slot.id),
           ),
       ],
     );
   }
 }
 
+enum _UploadStatus { uploading, failed, done }
+
 class _PhotoTile extends StatelessWidget {
   final ServiceOrderPhotoSlot slot;
   final Uint8List? bytes;
   final String? remoteUrl;
+  final _UploadStatus status;
   final VoidCallback onTap;
+  final VoidCallback? onRetry;
 
   const _PhotoTile({
     required this.slot,
     required this.bytes,
     required this.onTap,
     this.remoteUrl,
+    this.status = _UploadStatus.done,
+    this.onRetry,
   });
+
+  Widget _badge() {
+    switch (status) {
+      case _UploadStatus.uploading:
+        return const Tooltip(
+          message: 'Enviando foto',
+          child: CircleAvatar(
+            radius: 12,
+            backgroundColor: Color(0xCC000000),
+            child: SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+          ),
+        );
+      case _UploadStatus.failed:
+        return GestureDetector(
+          onTap: onRetry,
+          child: const Tooltip(
+            message: 'No se envió. Toca para reintentar',
+            child: CircleAvatar(
+              radius: 12,
+              backgroundColor: AppColors.error,
+              child: Icon(Icons.refresh, color: Colors.white, size: 16),
+            ),
+          ),
+        );
+      case _UploadStatus.done:
+        return const CircleAvatar(
+          radius: 12,
+          backgroundColor: AppColors.success,
+          child: Icon(Icons.check, color: Colors.white, size: 16),
+        );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -242,14 +309,10 @@ class _PhotoTile extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const Positioned(
+                  Positioned(
                     top: 8,
                     right: 8,
-                    child: CircleAvatar(
-                      radius: 12,
-                      backgroundColor: AppColors.success,
-                      child: Icon(Icons.check, color: Colors.white, size: 16),
-                    ),
+                    child: _badge(),
                   ),
                 ],
               ),

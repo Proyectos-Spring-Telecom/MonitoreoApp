@@ -60,6 +60,7 @@ class _ServiceOrderFlowView extends StatefulWidget {
 
 class _ServiceOrderFlowViewState extends State<_ServiceOrderFlowView> {
   late final ServiceOrderFlowController _controller;
+  late final AppLifecycleListener _lifecycle;
   bool _leaving = false;
 
   @override
@@ -67,10 +68,17 @@ class _ServiceOrderFlowViewState extends State<_ServiceOrderFlowView> {
     super.initState();
     _controller = context.read<ServiceOrderFlowController>();
     _controller.addListener(_onControllerChanged);
+    // Al volver del portal, de WhatsApp o de otra pestaña la orden se
+    // actualiza sin esperar a la siguiente consulta.
+    _lifecycle = AppLifecycleListener(
+      onHide: _controller.pause,
+      onShow: _controller.resume,
+    );
   }
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.removeListener(_onControllerChanged);
     super.dispose();
   }

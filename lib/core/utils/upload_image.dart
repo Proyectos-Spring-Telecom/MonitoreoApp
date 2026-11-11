@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 
 import '../errors/failures.dart';
+import '../platform/jpg_converter.dart';
 import 'file_type.dart';
 
 class UploadImage {
@@ -25,7 +25,7 @@ Future<UploadImage> prepareUploadImage(
   if (type == FileType.jpeg || type == FileType.png) {
     result = UploadImage(bytes, type!);
   } else {
-    final converted = await compute(_toJpg, bytes);
+    final converted = await convertToJpg(bytes);
     if (converted == null) {
       throw ValidationFailure(
         '$label: formato no permitido. Usa una imagen PNG o JPG.',
@@ -39,10 +39,4 @@ Future<UploadImage> prepareUploadImage(
     );
   }
   return result;
-}
-
-Uint8List? _toJpg(Uint8List bytes) {
-  final image = img.decodeImage(bytes);
-  if (image == null) return null;
-  return img.encodeJpg(image, quality: 85);
 }
