@@ -53,6 +53,10 @@ dev_dependencies:
   flutter_lints: ^3.0.0
   flutter_launcher_icons: ^0.14.4
   image_picker_platform_interface: ^2.11.2
+  # Simulan el GPS en las pruebas de LocationService.
+  geolocator_platform_interface: ^4.2.0
+  # Controla el reloj en las pruebas de tiempos máximos.
+  fake_async: ^1.3.0
 
 flutter:
   uses-material-design: true
