@@ -94,7 +94,10 @@ class _HomePageState extends State<HomePage> {
         titleTextStyle: const TextStyle(color: Colors.white, fontSize: 20),
         title: _getAppBarTitle(_currentIndex),
       ),
-      drawer: const AppDrawer(),
+      drawer: AppDrawer(
+        homeTab: _currentIndex,
+        onHomeTab: (tab) => setState(() => _currentIndex = tab),
+      ),
       body: _getPages()[_currentIndex],
       bottomNavigationBar: BottomNavigationWidget(
         currentIndex: _currentIndex,
