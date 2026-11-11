@@ -128,10 +128,20 @@ class MyApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         navigatorKey: appNavigatorKey,
+        // En web la URL del navegador reemplaza a [initialRoute]; las rutas
+        // revisan la sesión al abrirse (ver [AppRoutes.onGenerateRoute]).
         initialRoute: authController.isAuthenticated
             ? AppConstants.homeRoute
             : AppConstants.loginRoute,
-        routes: AppRoutes.getRoutes(),
+        onGenerateInitialRoutes: (initialRoute) =>
+            AppRoutes.onGenerateInitialRoutes(
+          initialRoute,
+          isAuthenticated: authController.isAuthenticated,
+        ),
+        onGenerateRoute: (settings) => AppRoutes.onGenerateRoute(
+          settings,
+          isAuthenticated: authController.isAuthenticated,
+        ),
       ),
     );
   }

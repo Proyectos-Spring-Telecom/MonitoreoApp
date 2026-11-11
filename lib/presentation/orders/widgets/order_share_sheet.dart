@@ -1,12 +1,10 @@
-import 'dart:io';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:open_filex/open_filex.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/errors/failures.dart';
+import '../../../core/platform/pdf_opener.dart';
 import '../../../core/utils/validators.dart';
 import '../../../core/widgets/app_message.dart';
 import '../../../domain/entities/service_order.dart';
@@ -17,19 +15,19 @@ import '../../service_order/widgets/service_order_ui.dart';
 import '../order_models.dart';
 
 /// Descarga `GET /:id/pdf` (cualquier estado) y lo abre con el visor del
-/// teléfono.
+/// teléfono; en el navegador queda en las descargas.
 Future<void> openOrderPdf(
     BuildContext context, ServiceOrderRecord order) async {
   final repository = context.read<ServiceOrderRepository>();
   AppMessage.show(context, 'Descargando PDF…');
   try {
     final bytes = await repository.downloadPdf(order.id);
-    final directory = await getTemporaryDirectory();
-    final file = File('${directory.path}/${order.folio}.pdf');
-    await file.writeAsBytes(bytes, flush: true);
-    final result = await OpenFilex.open(file.path, type: 'application/pdf');
-    if (result.type != ResultType.done && context.mounted) {
+    final opened = await openPdf(bytes, '${order.folio}.pdf');
+    if (!context.mounted) return;
+    if (!opened) {
       AppMessage.error(context, 'No hay una aplicación para abrir el PDF.');
+    } else if (kIsWeb) {
+      AppMessage.success(context, 'PDF descargado.');
     }
   } on Failure catch (e) {
     if (context.mounted) AppMessage.error(context, e.message);
@@ -126,6 +124,22 @@ Future<void> _shareByWhatsApp(
     ),
   );
   if (url == null || !context.mounted) return;
+  if (kIsWeb) {
+    // El navegador bloquea las ventanas que no abre un toque directo, y aquí
+    // ya pasó la espera al servidor: se pide un toque más.
+    await showDialog<void>(
+      context: context,
+      builder: (_) => _OpenWhatsAppDialog(
+        folio: order.folio,
+        onOpen: () => _launchWhatsApp(context, url),
+      ),
+    );
+    return;
+  }
+  await _launchWhatsApp(context, url);
+}
+
+Future<void> _launchWhatsApp(BuildContext context, String url) async {
   var opened = false;
   try {
     opened = await launchUrl(
@@ -137,6 +151,75 @@ Future<void> _shareByWhatsApp(
   }
   if (!opened && context.mounted) {
     AppMessage.error(context, 'No se pudo abrir WhatsApp');
+  }
+}
+
+/// Solo en web: el enlace ya está listo y el botón abre WhatsApp en el mismo
+/// toque.
+class _OpenWhatsAppDialog extends StatelessWidget {
+  final String folio;
+  final VoidCallback onOpen;
+
+  const _OpenWhatsAppDialog({required this.folio, required this.onOpen});
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: ServiceOrderColors.card,
+      insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const ServiceOrderSectionHeader(
+              icon: Icons.chat_outlined,
+              title: 'Enlace listo',
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'El PDF de la orden $folio ya se puede compartir.',
+              style: const TextStyle(
+                color: ServiceOrderColors.mutedText,
+                fontSize: 14,
+                height: 1.4,
+              ),
+            ),
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 50,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  onOpen();
+                  Navigator.of(context).pop();
+                },
+                icon: const Icon(Icons.chat_outlined),
+                label: const Text(
+                  'Abrir WhatsApp',
+                  style: TextStyle(fontWeight: FontWeight.w600),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: _whatsAppGreen,
+                  foregroundColor: Colors.white,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              style: TextButton.styleFrom(foregroundColor: Colors.white),
+              child: const Text('Cancelar'),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
