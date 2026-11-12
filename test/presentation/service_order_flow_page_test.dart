@@ -1,5 +1,9 @@
+import 'dart:async';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image_picker_platform_interface/image_picker_platform_interface.dart';
 import 'package:provider/provider.dart';
 import 'package:monitoreo/core/constants/app_constants.dart';
 import 'package:monitoreo/core/errors/failures.dart';
@@ -49,6 +53,9 @@ class _FakeStock implements InstallationRemoteDataSource {
 class _FakeVehicles implements VehicleRemoteDataSource {
   final created = <VehicleRequest>[];
 
+  /// Si se asigna, el registro espera a que se complete (subida lenta).
+  Completer<String?>? pending;
+
   @override
   Future<VehicleLookup?> findByPlate(String plate) async => null;
 
@@ -58,7 +65,8 @@ class _FakeVehicles implements VehicleRemoteDataSource {
     Map<String, String> fileLabels = const {},
   }) async {
     created.add(request);
-    return '900';
+    final wait = pending;
+    return wait == null ? '900' : await wait.future;
   }
 
   @override
@@ -67,6 +75,21 @@ class _FakeVehicles implements VehicleRemoteDataSource {
     VehicleRequest request, {
     Map<String, String> fileLabels = const {},
   }) async {}
+}
+
+/// Galería simulada: devuelve siempre la misma imagen.
+class _FakePicker extends ImagePickerPlatform {
+  @override
+  Future<XFile?> getImageFromSource({
+    required ImageSource source,
+    ImagePickerOptions options = const ImagePickerOptions(),
+  }) async =>
+      XFile.fromData(
+        // PNG de 1×1.
+        base64Decode('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4'
+            '2mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='),
+        name: 'f.png',
+      );
 }
 
 /// Sin catálogos de vehículo: el alta sigue solo con la placa.
@@ -377,5 +400,65 @@ void main() {
         tester, find.widgetWithText(ElevatedButton, 'Registrar vehículo'));
     expect(vehicles.created, isEmpty);
     expect(find.text('Faltan 6 fotografías del vehículo.'), findsOneWidget);
+  });
+
+  testWidgets('alta: "Registrar vehículo" muestra que está registrando',
+      (tester) async {
+    ImagePickerPlatform.instance = _FakePicker();
+    await openOrder(
+      tester,
+      scheduledOrder(
+        type: ServiceType.instalacion,
+        status: ServiceOrderStatus.borrador,
+      ),
+    );
+    vehicles.pending = Completer<String?>();
+
+    await tester.enterText(find.byType(TextField).first, 'NV4126B');
+    await tapVisible(tester, find.text('Buscar vehículo'));
+    for (final label in const [
+      'Imagen principal *',
+      'Fotografía frontal *',
+      'Fotografía trasera *',
+      'Lateral derecha *',
+      'Lateral izquierda *',
+      'Tarjeta de circulación *',
+    ]) {
+      await tapVisible(tester, find.text(label));
+      await tester.tap(find.text('Elegir de la galería'));
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('6/6'), findsOneWidget);
+
+    final register = find.widgetWithText(ElevatedButton, 'Registrar vehículo');
+    // El indicador gira mientras sube: no se puede esperar a que se detenga.
+    await tester.ensureVisible(register);
+    await tester.pumpAndSettle();
+    await tester.tap(register);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    // Mientras sube: indicador, botón desactivado y aviso.
+    expect(find.text('Registrando vehículo…'), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsWidgets);
+    expect(
+      find.text('Subiendo los datos y las fotos. No cierres la app.'),
+      findsOneWidget,
+    );
+    final button = tester.widget<ElevatedButton>(find.ancestor(
+      of: find.text('Registrando vehículo…'),
+      matching: find.byType(ElevatedButton),
+    ));
+    expect(button.onPressed, isNull);
+
+    // Un segundo toque no registra otra vez.
+    await tester.tap(find.text('Registrando vehículo…'), warnIfMissed: false);
+    await tester.pump();
+    expect(vehicles.created, hasLength(1));
+
+    vehicles.pending!.complete('900');
+    await tester.pumpAndSettle();
+    expect(find.text('Registrando vehículo…'), findsNothing);
+    expect(repository.updates.last['idProducto'], isNotNull);
   });
 }

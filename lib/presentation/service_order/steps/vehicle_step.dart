@@ -76,6 +76,10 @@ class _VehicleStepState extends State<VehicleStep> {
   _SearchState _search = _SearchState.idle;
   VehicleLookup? _found;
   bool _searching = false;
+
+  /// `POST /productos/vehiculos` con las fotos: tarda y ocurre fuera del
+  /// controlador, así que [ServiceOrderFlowController.isBusy] no lo cubre.
+  bool _registering = false;
   bool _changing = false;
   bool _showErrors = false;
 
@@ -197,7 +201,24 @@ class _VehicleStepState extends State<VehicleStep> {
       );
       return;
     }
-    final ok = await runOrderAction(context, () async {
+    if (_registering) return;
+    FocusScope.of(context).unfocus();
+    setState(() => _registering = true);
+    final bool ok;
+    try {
+      ok = await _registerVehicle(controller, dataSource, clientId);
+    } finally {
+      if (mounted) setState(() => _registering = false);
+    }
+    if (ok && mounted) setState(() => _changing = false);
+  }
+
+  Future<bool> _registerVehicle(
+    ServiceOrderFlowController controller,
+    VehicleRemoteDataSource dataSource,
+    String clientId,
+  ) {
+    return runOrderAction(context, () async {
       final id = await dataSource.createVehicle(
         VehicleRequest(
           clientId: clientId,
@@ -220,7 +241,6 @@ class _VehicleStepState extends State<VehicleStep> {
       }
       await controller.setVehicle(id);
     });
-    if (ok && mounted) setState(() => _changing = false);
   }
 
   Future<void> _requestAuthorization() async {
@@ -261,7 +281,7 @@ class _VehicleStepState extends State<VehicleStep> {
     return ServiceOrderFormBody(
       action: ServiceOrderBottomButton(
         label: 'Siguiente',
-        isLoading: controller.isBusy,
+        isLoading: controller.isBusy || _registering,
         onPressed: controller.isBlocking(ServiceOrderStep.vehicle)
             ? null
             : controller.next,
@@ -357,7 +377,7 @@ class _VehicleStepState extends State<VehicleStep> {
             hint: 'Ej: NV4126B',
             controller: _plateController,
             isRequired: true,
-            enabled: !_searching && !controller.isBusy,
+            enabled: !_searching && !controller.isBusy && !_registering,
             errorText: _showErrors && _plate.isEmpty
                 ? 'La placa es obligatoria'
                 : null,
@@ -372,8 +392,9 @@ class _VehicleStepState extends State<VehicleStep> {
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  onPressed:
-                      _searching || controller.isBusy ? null : _searchPlate,
+                  onPressed: _searching || controller.isBusy || _registering
+                      ? null
+                      : _searchPlate,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: Colors.white,
                     side: const BorderSide(color: ServiceOrderColors.accent),
@@ -423,19 +444,25 @@ class _VehicleStepState extends State<VehicleStep> {
         const SizedBox(height: 14),
         ElevatedButton(
           onPressed: controller.isBusy ? null : _useFound,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.primaryBlue,
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(46),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
+          style: _primaryButtonStyle,
+          child: _ButtonLabel(
+            label: 'Usar este vehículo',
+            busyLabel: 'Asignando vehículo…',
+            isBusy: controller.isBusy,
           ),
-          child: const Text('Usar este vehículo'),
         ),
       ],
     );
   }
+
+  static final ButtonStyle _primaryButtonStyle = ElevatedButton.styleFrom(
+    backgroundColor: AppColors.primaryBlue,
+    foregroundColor: Colors.white,
+    disabledBackgroundColor: AppColors.primaryBlue.withValues(alpha: 0.6),
+    disabledForegroundColor: Colors.white,
+    minimumSize: const Size.fromHeight(46),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+  );
 
   Widget _buildNewVehicleCard(ServiceOrderFlowController controller) {
     final catalogs = _catalogs;
@@ -446,174 +473,186 @@ class _VehicleStepState extends State<VehicleStep> {
     List<String> ids(List<CatalogItem>? items) =>
         items?.map((item) => item.id).toList() ?? const [];
 
+    // Mientras se registra no se pueden cambiar los datos ni las fotos.
     return ServiceOrderCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          const ServiceOrderSectionHeader(
-            icon: Icons.add_circle_outline,
-            title: 'Registrar vehículo nuevo',
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'No hay un vehículo con la placa $_plate. Se dará de alta para '
-            'el cliente de la orden. Las fotografías son obligatorias; los '
-            'demás datos, opcionales.',
-            style: const TextStyle(
-              color: ServiceOrderColors.mutedText,
-              fontSize: 14,
-              height: 1.4,
+      child: AbsorbPointer(
+        absorbing: _registering,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const ServiceOrderSectionHeader(
+              icon: Icons.add_circle_outline,
+              title: 'Registrar vehículo nuevo',
             ),
-          ),
-          const SizedBox(height: 16),
-          if (_catalogError != null)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Text(
-                '$_catalogError Puedes registrar el vehículo solo con la placa.',
-                style: const TextStyle(color: AppColors.error, fontSize: 13),
+            const SizedBox(height: 8),
+            Text(
+              'No hay un vehículo con la placa $_plate. Se dará de alta para '
+              'el cliente de la orden. Las fotografías son obligatorias; los '
+              'demás datos, opcionales.',
+              style: const TextStyle(
+                color: ServiceOrderColors.mutedText,
+                fontSize: 14,
+                height: 1.4,
               ),
             ),
-          ServiceOrderTextField(
-            label: 'Número económico',
-            hint: 'Ej: ECO-045',
-            controller: _economicController,
-            textCapitalization: TextCapitalization.characters,
-          ),
-          ServiceOrderDropdown(
-            key: ValueKey('marca_$ready'),
-            label: 'Marca',
-            hint: ready ? 'Selecciona una marca' : 'Cargando...',
-            value: _brandId,
-            items: ids(catalogs?.brands),
-            itemLabel: labelFrom(catalogs?.brands),
-            clearLabel: 'Sin especificar',
-            onChanged: !ready
-                ? null
-                : (value) => setState(() {
-                      _brandId = value;
-                      _modelId = null;
-                    }),
-          ),
-          ServiceOrderDropdown(
-            key: ValueKey('modelo_${_brandId}_$ready'),
-            label: 'Modelo',
-            hint: _brandId == null
-                ? 'Selecciona primero una marca'
-                : 'Selecciona un modelo',
-            value: _modelId,
-            items: ids(models),
-            itemLabel: labelFrom(models),
-            clearLabel: 'Sin especificar',
-            onChanged: models.isEmpty
-                ? null
-                : (value) => setState(() => _modelId = value),
-          ),
-          ServiceOrderDropdown(
-            label: 'Año',
-            hint: 'Selecciona el año',
-            value: _year,
-            items: _years,
-            clearLabel: 'Sin especificar',
-            onChanged: (value) => setState(() => _year = value),
-          ),
-          ServiceOrderDropdown(
-            label: 'Color',
-            hint: 'Selecciona el color',
-            value: _color,
-            items: _colors,
-            clearLabel: 'Sin especificar',
-            onChanged: (value) => setState(() => _color = value),
-          ),
-          ServiceOrderTextField(
-            label: 'Número de serie (VIN)',
-            hint: 'Ej: 3N1CN7AD5KL123456',
-            controller: _vinController,
-            textCapitalization: TextCapitalization.characters,
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9]')),
-              LengthLimitingTextInputFormatter(17),
-            ],
-          ),
-          ServiceOrderDropdown(
-            key: ValueKey('combustible_$ready'),
-            label: 'Combustible',
-            hint: ready ? 'Selecciona el combustible' : 'Cargando...',
-            value: _fuelId,
-            items: ids(catalogs?.fuelTypes),
-            itemLabel: labelFrom(catalogs?.fuelTypes),
-            clearLabel: 'Sin especificar',
-            onChanged:
-                !ready ? null : (value) => setState(() => _fuelId = value),
-            isLast: true,
-          ),
-          const SizedBox(height: 16),
-          Row(
-            key: _photosKey,
-            children: [
-              const Expanded(
+            const SizedBox(height: 16),
+            if (_catalogError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
                 child: Text(
-                  'Fotografías del vehículo *',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 15,
+                  '$_catalogError Puedes registrar el vehículo solo con la placa.',
+                  style: const TextStyle(color: AppColors.error, fontSize: 13),
+                ),
+              ),
+            ServiceOrderTextField(
+              label: 'Número económico',
+              hint: 'Ej: ECO-045',
+              controller: _economicController,
+              textCapitalization: TextCapitalization.characters,
+            ),
+            ServiceOrderDropdown(
+              key: ValueKey('marca_$ready'),
+              label: 'Marca',
+              hint: ready ? 'Selecciona una marca' : 'Cargando...',
+              value: _brandId,
+              items: ids(catalogs?.brands),
+              itemLabel: labelFrom(catalogs?.brands),
+              clearLabel: 'Sin especificar',
+              onChanged: !ready
+                  ? null
+                  : (value) => setState(() {
+                        _brandId = value;
+                        _modelId = null;
+                      }),
+            ),
+            ServiceOrderDropdown(
+              key: ValueKey('modelo_${_brandId}_$ready'),
+              label: 'Modelo',
+              hint: _brandId == null
+                  ? 'Selecciona primero una marca'
+                  : 'Selecciona un modelo',
+              value: _modelId,
+              items: ids(models),
+              itemLabel: labelFrom(models),
+              clearLabel: 'Sin especificar',
+              onChanged: models.isEmpty
+                  ? null
+                  : (value) => setState(() => _modelId = value),
+            ),
+            ServiceOrderDropdown(
+              label: 'Año',
+              hint: 'Selecciona el año',
+              value: _year,
+              items: _years,
+              clearLabel: 'Sin especificar',
+              onChanged: (value) => setState(() => _year = value),
+            ),
+            ServiceOrderDropdown(
+              label: 'Color',
+              hint: 'Selecciona el color',
+              value: _color,
+              items: _colors,
+              clearLabel: 'Sin especificar',
+              onChanged: (value) => setState(() => _color = value),
+            ),
+            ServiceOrderTextField(
+              label: 'Número de serie (VIN)',
+              hint: 'Ej: 3N1CN7AD5KL123456',
+              controller: _vinController,
+              textCapitalization: TextCapitalization.characters,
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp('[a-zA-Z0-9]')),
+                LengthLimitingTextInputFormatter(17),
+              ],
+            ),
+            ServiceOrderDropdown(
+              key: ValueKey('combustible_$ready'),
+              label: 'Combustible',
+              hint: ready ? 'Selecciona el combustible' : 'Cargando...',
+              value: _fuelId,
+              items: ids(catalogs?.fuelTypes),
+              itemLabel: labelFrom(catalogs?.fuelTypes),
+              clearLabel: 'Sin especificar',
+              onChanged:
+                  !ready ? null : (value) => setState(() => _fuelId = value),
+              isLast: true,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              key: _photosKey,
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Fotografías del vehículo *',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+                Text(
+                  '${_photos.length}/${_photoSlots.length}',
+                  style: const TextStyle(
+                    color: ServiceOrderColors.mutedText,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ServiceOrderPhotoGrid(
+              slots: [
+                for (final slot in _photoSlots)
+                  ServiceOrderPhotoSlot(slot.id, '${slot.label} *', slot.icon),
+              ],
+              photos: _photos,
+              onChanged: (slot, bytes) => setState(() {
+                bytes == null ? _photos.remove(slot) : _photos[slot] = bytes;
+              }),
+            ),
+            if (_showErrors && _missingPhotos.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  _missingPhotos.length == 1
+                      ? 'Falta 1 fotografía del vehículo.'
+                      : 'Faltan ${_missingPhotos.length} fotografías del '
+                          'vehículo.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: AppColors.error,
+                    fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
-              Text(
-                '${_photos.length}/${_photoSlots.length}',
-                style: const TextStyle(
-                  color: ServiceOrderColors.mutedText,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed:
+                  controller.isBusy || _registering ? null : _createVehicle,
+              style: _primaryButtonStyle,
+              child: _ButtonLabel(
+                label: 'Registrar vehículo',
+                busyLabel: 'Registrando vehículo…',
+                isBusy: controller.isBusy || _registering,
+              ),
+            ),
+            if (_registering)
+              const Padding(
+                padding: EdgeInsets.only(top: 10),
+                child: Text(
+                  'Subiendo los datos y las fotos. No cierres la app.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: ServiceOrderColors.mutedText,
+                    fontSize: 13,
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ServiceOrderPhotoGrid(
-            slots: [
-              for (final slot in _photoSlots)
-                ServiceOrderPhotoSlot(slot.id, '${slot.label} *', slot.icon),
-            ],
-            photos: _photos,
-            onChanged: (slot, bytes) => setState(() {
-              bytes == null ? _photos.remove(slot) : _photos[slot] = bytes;
-            }),
-          ),
-          if (_showErrors && _missingPhotos.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: 10),
-              child: Text(
-                _missingPhotos.length == 1
-                    ? 'Falta 1 fotografía del vehículo.'
-                    : 'Faltan ${_missingPhotos.length} fotografías del '
-                        'vehículo.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: AppColors.error,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          const SizedBox(height: 16),
-          ElevatedButton(
-            onPressed: controller.isBusy ? null : _createVehicle,
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primaryBlue,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(46),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
-            child: Text(
-              controller.isBusy ? 'Registrando...' : 'Registrar vehículo',
-            ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -759,4 +798,36 @@ class _UpperCaseFormatter extends TextInputFormatter {
     TextEditingValue newValue,
   ) =>
       newValue.copyWith(text: newValue.text.toUpperCase());
+}
+
+/// Texto de un botón con indicador de carga mientras la acción está en curso.
+class _ButtonLabel extends StatelessWidget {
+  final String label;
+  final String busyLabel;
+  final bool isBusy;
+
+  const _ButtonLabel({
+    required this.label,
+    required this.busyLabel,
+    required this.isBusy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (!isBusy) return Text(label);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const SizedBox(
+          width: 18,
+          height: 18,
+          child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+        ),
+        const SizedBox(width: 12),
+        Flexible(
+          child: Text(busyLabel, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
+    );
+  }
 }
