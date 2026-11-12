@@ -146,7 +146,7 @@ Cada fase se da por terminada cuando:
   - [x] iPhone con Safari, instalada en inicio.
   - [x] Escritorio.
 - [x] Documentar la publicación en `docs/`: compilar, subir y limpiar caché. Ver `docs/PUBLICACION_WEB.md`; la caché no se limpia a mano, el aviso de versión nueva se encarga.
-- [ ] Anotar la entrega en la bitácora (`docs/PLAN_IMPLEMENTACION_API.md`).
+- [x] Anotar la entrega en la bitácora (`docs/PLAN_IMPLEMENTACION_API.md`), 12-nov-2026.
 
 ---
 
@@ -157,3 +157,4 @@ Cada fase se da por terminada cuando:
 - [x] **Backend:** confirmar si las fotos del vehículo son obligatorias. Sí lo son, porque se toman al hacer la instalación (11-nov-2026). Al registrar un vehículo nuevo en un alta, la app ya exige las 6 (principal, frontal, trasera, laterales y tarjeta de circulación) y muestra cuáles faltan.
 - [ ] **Backend:** confirmar cómo se detecta que la orden necesita autorización.
 - [x] **iOS:** el mínimo subió a iOS 15.0 (11-nov-2026) en `ios/Podfile`, el proyecto de Xcode y `AppFrameworkInfo.plist`. `pod install` ya funciona y la app compila para iOS. La app se usará siempre como PWA en Android e iOS; la versión nativa solo se mantiene compilable.
+- [x] **Web:** la foto de perfil se bloqueaba por CORS cuando el navegador tenía guardada una copia sin encabezados. Ahora, si falla, se muestra con `<img>`. Validado en navegador y en la PWA en Android e iOS (12-nov-2026).
