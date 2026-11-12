@@ -20,11 +20,16 @@ class AgendaCalendar extends StatefulWidget {
   /// Hoy; las pruebas lo fijan.
   final DateTime Function() now;
 
+  /// Lo que va entre el selector Agenda | Mes y el calendario (las órdenes
+  /// en curso), visible en las dos vistas.
+  final List<Widget> header;
+
   const AgendaCalendar({
     super.key,
     required this.orders,
     required this.onOpen,
     this.now = DateTime.now,
+    this.header = const [],
   });
 
   @override
@@ -135,6 +140,7 @@ class _AgendaCalendarState extends State<AgendaCalendar> {
           onChanged: (view) => setState(() => _view = view),
         ),
         const SizedBox(height: 16),
+        ...widget.header,
         if (_view == AgendaView.agenda)
           ..._buildAgenda(byDay)
         else
