@@ -65,17 +65,4 @@ class LocationService {
       }
     }
   }
-
-  static Future<String?> getLocationName(
-      double latitude, double longitude) async {
-    try {
-      // Por ahora retornamos las coordenadas formateadas
-      // En el futuro se puede integrar con un servicio de geocoding inverso
-      // como Google Maps Geocoding API o similar
-      return '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-    } catch (e) {
-      // En caso de error, retornar coordenadas
-      return '${latitude.toStringAsFixed(4)}, ${longitude.toStringAsFixed(4)}';
-    }
-  }
 }

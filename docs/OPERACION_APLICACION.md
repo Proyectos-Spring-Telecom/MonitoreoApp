@@ -1,6 +1,8 @@
-# Cómo opera Monitoreo
+# Cómo opera Instaladores Spring
 
-Aplicación Flutter para los técnicos instaladores de Spring Telecom (rol 8). El técnico atiende en campo las órdenes que operación le programa: instalación (alta), revisión, cambio de SIM, cambio de equipo y desinstalación.
+Aplicación Flutter para los técnicos instaladores de Spring Telecom (rol 8). El técnico atiende en campo las órdenes que operación le programa: instalación (alta), revisión, cambio de SIM, cambio de equipo y desinstalación. Se usa como PWA en `https://springtelecom.mx/ordenservicioapp/`.
+
+Este documento explica cómo opera la app paso a paso. Para la visión general y las reglas de negocio ver [CONTEXTO.md](CONTEXTO.md); para los campos de cada servicio, [CONTRATO.md](CONTRATO.md).
 
 La implementación sigue el contrato de NextAPI para la App de instaladores (`docs/app-instaladores.md` en el repositorio de NextAPI, rama `dev-isra`). Los números **§** de este documento son sus secciones. Si el contrato y el código del API no coinciden, manda el código del API.
 
@@ -46,6 +48,7 @@ flowchart TD
 ```
 
 - El permiso de ubicación ya no se pide al arrancar: se pide al iniciar una orden, que es cuando se registra la ubicación.
+- En web, `web/pwa.js` registra el service worker, quita la pantalla de carga y revisa si hay una versión nueva (ver «Versión web» al final).
 - Al entrar a Inicio se cargan y guardan en memoria `GET /ordenes-servicio/catalogo` y `GET /ordenes-servicio/motivos` (§2).
 
 ### Sesión en cada petición
@@ -68,14 +71,28 @@ Toda llamada autenticada lleva `Authorization: Bearer`. Con un 401 se intenta `P
 | Pestaña | Pantalla | Qué hace |
 |---|---|---|
 | Inicio | Bienvenida | Saludo, «Ver mi agenda» y «Ver mi historial» |
-| Agenda | Agenda | Órdenes **en curso** (`borrador`) y **programadas** (`programada`, por cita) |
-| Servicios | Historial | Órdenes **cerradas** y **no cumplidas** |
+| Agenda | Agenda | Selector **Agenda \| Mes**; debajo, las órdenes **en curso** (`borrador`) y después el calendario con las **programadas** (`programada`, por cita) |
+| Servicios | Historial | Órdenes **cerradas** y **no cumplidas**, con búsqueda y filtro por fecha |
 | Perfil | Perfil | Datos de `GET /login/me` |
+
+El menú lateral repite las cuatro pestañas (cambia de pestaña sin abrir otra pantalla) y agrega **Cambio de contraseña** y **Cerrar sesión**.
+
+**Agenda:**
+
+- Vista **Agenda:** un renglón por día con sus órdenes ordenadas por hora, agrupadas por mes.
+- Vista **Mes:** cuadrícula donde cada día muestra sus órdenes como etiquetas de color con la hora (y «+n» si hay más). Al elegir un día se listan sus órdenes debajo. **Hoy** regresa al mes actual.
+- Cada orden lleva el color de su tipo (ver CONTEXTO §6). Se cargan hasta 10 páginas de 50 programadas.
 
 | Ruta | Pantalla |
 |---|---|
-| `/service-order` | Una orden de la agenda, de principio a fin (argumento: la orden o su id) |
-| `/order-detail` | Detalle de una orden, PDF y compartir |
+| `/login` | Inicio de sesión |
+| `/forgot-password` | Recuperar contraseña |
+| `/home` | Pestañas (Inicio, Agenda, Servicios, Perfil) |
+| `/change-password` | Cambio de contraseña |
+| `/service-order?id=42` | Una orden de la agenda, de principio a fin |
+| `/order-detail?id=42` | Detalle de una orden, PDF y compartir |
+
+`AppRoutes` revisa la sesión al abrir cada ruta: sin sesión todo va a `/login`; con sesión, `/login` y las rutas desconocidas van a `/home`. El id en la URL permite recargar en web y volver a la misma orden.
 
 ---
 
@@ -129,7 +146,7 @@ La pantalla muestra servicio programado, cliente, cita, vehículo, quién progra
 ### 2. Vehículo del alta (§6, §7)
 
 1. `GET /productos/vehiculos/placa/:placa`. Si existe y es del cliente, se usa **sin modificar sus datos**. Si hay más de uno con esa placa el API responde 400 y se muestra el mensaje.
-2. Si no existe: `POST /productos/vehiculos` con `idCliente` de la orden y `placa`; número económico, marca, modelo, año, color, VIN, combustible y fotos son opcionales.
+2. Si no existe: `POST /productos/vehiculos` con `idCliente` de la orden, `placa` y **las 6 fotos obligatorias** (principal, frontal, trasera, laterales y tarjeta de circulación); número económico, marca, modelo, año, color, VIN y combustible son opcionales. Mientras se registra, el botón muestra «Registrando vehículo…» y el formulario queda bloqueado para evitar un doble registro.
 3. `PATCH { idProducto }`.
 4. Si `faltantesParaCerrar` dice que el vehículo ya tiene equipo: foto `equipo_existente` y observaciones (las dos se piden en la App), `POST /:id/autorizacion`, y se consulta `GET /:id` cada 12 s hasta que `autorizacion` sea:
    - `autorizada`: se continúa con el alta (Next da de baja la instalación anterior al cerrar);
@@ -161,6 +178,8 @@ El equipo y la SIM que entran salen de `GET /dispositivos/list?idCliente=` y `GE
 ### 5. Checklist (§5)
 
 Opciones sí/no de `vehiculo_cuenta_con`, `funcionamiento_vehiculo` y `fallas_equipo`; se envían **todas** porque el servidor las exige para cerrar. En el alta las fallas no se muestran y van en «no». Fotos del catálogo (`tablero_inicio`, `tablero_final` obligatorias; `falla_extra_1..3` opcionales, no en el alta). Las fotos ya subidas se ven desde el servidor y se pueden reemplazar.
+
+Cada foto (también `equipo_existente`) se sube **en cuanto se toma** y muestra su estado: ⏳ enviando, ✓ enviada o ↻ falló (se toca para reintentar). «Siguiente» y «Solicitar autorización» esperan a que terminen y reintentan las que fallaron.
 
 ### 6. Pruebas y firmas (§9)
 
@@ -194,9 +213,9 @@ Desde el menú de la orden. Motivos de `/motivos` con `no_cumplida` en `resultad
 
 - Historial: `GET /ordenes-servicio/paginado/:page/:limit?estatus=cerrada` o `no_cumplida`, con búsqueda y filtro de fecha en el teléfono.
 - Detalle: `GET /ordenes-servicio/:id`. Las URL de fotos y firmas duran 5 minutos; al deslizar hacia abajo se renuevan.
-- **Ver PDF** (cualquier estado): `GET /:id/pdf`, se guarda en temporales y se abre con el visor del teléfono.
+- **Ver PDF** (cualquier estado): `GET /:id/pdf`. En el teléfono se guarda en temporales y se abre con el visor; en web se descarga como `<folio>.pdf`.
 - **Compartir** (solo `cerrada` o `no_cumplida`):
-  - WhatsApp: `POST /:id/compartir { telefono? }` y se abre el enlace `whatsapp` que devuelve (vigente 168 h).
+  - WhatsApp: `POST /:id/compartir { telefono? }` y se abre el enlace `whatsapp` que devuelve (vigente 168 h). En web aparece «Enlace listo» con **Abrir WhatsApp**, porque el navegador bloquea las ventanas que no abre un toque.
   - Correo: `POST /:id/enviar-correo { correos: [...] }`, de 1 a 5.
 
 ---
@@ -217,7 +236,27 @@ Desde el menú de la orden. Motivos de `/motivos` con `no_cumplida` en `resultad
 
 ## Permisos y red
 
-- Ubicación: al iniciar una orden y, si no se pudo, al guardar las pruebas.
+- Ubicación: al iniciar una orden y, si no se pudo, al guardar las pruebas. Máximo 15 s para obtener la posición y 30 s en total con el aviso de permiso; si no llega, se usa la última conocida (en el teléfono) o la orden sigue sin coordenadas.
 - Cámara y galería: fotos del vehículo, del checklist, del equipo encontrado y firmas.
 - Tiempo de espera: 30 segundos en JSON y 120 segundos al subir archivos.
 - Las respuestas JSON se leen en la raíz o dentro de `data`, sin distinguir mayúsculas en las claves. Los errores en texto o en JSON se leen igual (`message`).
+
+---
+
+## Salir y volver a la app
+
+- Mientras la app está oculta (otra app, otra pestaña o pantalla apagada) se pausa la consulta de cada 12 s.
+- Al volver, la orden se recarga de inmediato si se esperaba la autorización o una prueba, o si pasó más de 1 minuto.
+- Si se cierra la app, al volver a abrir la orden desde «En curso» se retoma en el estado guardado en el servidor.
+
+## Versión web
+
+| Tema | Cómo funciona |
+|---|---|
+| Dirección | `https://springtelecom.mx/ordenservicioapp/#/home`. Las rutas llevan `#`, así que nginx no necesita reescrituras |
+| Sin conexión | `web/sw.js` pide primero la red y, sin conexión, usa la copia guardada: la app abre pero operar requiere red. Nunca guarda respuestas del API ni fotos de S3 |
+| Versión nueva | Al volver a la app o cada 30 min se compara `build.json`; si cambió aparece «Hay una versión nueva de la app» con **Recargar**, en la parte superior |
+| Instalar | Android: Chrome → **Instalar app**. iPhone: Safari → Compartir → **Agregar a inicio** |
+| Atrás | El botón atrás del navegador regresa un paso de la orden; en la PWA de iPhone se usa la flecha de la app |
+| Fotos | En web la conversión a JPG usa el canvas del navegador. La foto de perfil se muestra con `<img>` si el navegador tiene una copia sin CORS |
+| Publicar | Ver el anexo de [PLAN_PWA.md](PLAN_PWA.md) |

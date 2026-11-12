@@ -23,12 +23,6 @@ abstract class VehicleRemoteDataSource {
     VehicleRequest request, {
     Map<String, String> fileLabels,
   });
-
-  Future<void> updateVehicle(
-    String vehicleId,
-    VehicleRequest request, {
-    Map<String, String> fileLabels,
-  });
 }
 
 class VehicleRemoteDataSourceImpl implements VehicleRemoteDataSource {
@@ -75,7 +69,7 @@ class VehicleRemoteDataSourceImpl implements VehicleRemoteDataSource {
     final response = await apiClient.multipart(
       'POST',
       ApiEndpoints.vehicles,
-      fields: request.toFields(includeClient: true),
+      fields: request.toFields(),
       files: files,
     );
     final id = JsonReader.string(
@@ -87,20 +81,5 @@ class VehicleRemoteDataSourceImpl implements VehicleRemoteDataSource {
       debugPrint('[API] Vehículo creado: id=$id · claves: ${keys.join(' | ')}');
     }
     return id;
-  }
-
-  @override
-  Future<void> updateVehicle(
-    String vehicleId,
-    VehicleRequest request, {
-    Map<String, String> fileLabels = const {},
-  }) async {
-    final files = request.toFiles(labels: fileLabels);
-    await apiClient.multipart(
-      'PATCH',
-      ApiEndpoints.vehicle(vehicleId),
-      fields: request.toFields(includeClient: false),
-      files: files,
-    );
   }
 }

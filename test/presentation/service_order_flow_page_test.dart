@@ -68,13 +68,6 @@ class _FakeVehicles implements VehicleRemoteDataSource {
     final wait = pending;
     return wait == null ? '900' : await wait.future;
   }
-
-  @override
-  Future<void> updateVehicle(
-    String vehicleId,
-    VehicleRequest request, {
-    Map<String, String> fileLabels = const {},
-  }) async {}
 }
 
 /// Galería simulada: devuelve siempre la misma imagen.

@@ -4,8 +4,7 @@ import '../../core/errors/failures.dart';
 import '../../core/network/api_client.dart';
 import '../../core/utils/file_type.dart';
 
-/// Datos del formulario "Datos del vehículo" para `POST`/`PATCH
-/// /productos/vehiculos`.
+/// Datos del formulario "Datos del vehículo" para `POST /productos/vehiculos`.
 class VehicleRequest {
   static const int maxFileBytes = 3 * 1024 * 1024;
   static const int maxPlateLength = 10;
@@ -53,15 +52,15 @@ class VehicleRequest {
     this.files = const {},
   });
 
-  /// Partes de texto. Los vacíos no se envían; `idCliente` solo en el alta.
-  Map<String, String> toFields({required bool includeClient}) {
+  /// Partes de texto. Los vacíos no se envían.
+  Map<String, String> toFields() {
     final fields = <String, String>{};
     void add(String key, String? value) {
       final text = value?.trim();
       if (text != null && text.isNotEmpty) fields[key] = text;
     }
 
-    if (includeClient) add('idCliente', clientId);
+    add('idCliente', clientId);
     add('placa', plate.toUpperCase());
     add('numeroEconomico', economicNumber);
     add('idMarcaVehiculo', brandId);

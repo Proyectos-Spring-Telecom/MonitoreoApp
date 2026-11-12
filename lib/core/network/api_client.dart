@@ -79,9 +79,6 @@ class ApiClient {
   Future<dynamic> post(String endpoint, {Object? body, bool auth = true}) =>
       _send('POST', endpoint, body: body, auth: auth);
 
-  Future<dynamic> put(String endpoint, {Object? body, bool auth = true}) =>
-      _send('PUT', endpoint, body: body, auth: auth);
-
   Future<dynamic> patch(
     String endpoint, {
     Object? body,
@@ -95,9 +92,6 @@ class ApiClient {
         auth: auth,
         expireSessionOn401: expireSessionOn401,
       );
-
-  Future<dynamic> delete(String endpoint, {Object? body, bool auth = true}) =>
-      _send('DELETE', endpoint, body: body, auth: auth);
 
   /// Envía `multipart/form-data` (textos en [fields] y archivos en [files]).
   Future<dynamic> multipart(

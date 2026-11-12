@@ -61,9 +61,6 @@ class FakeAuthRepository implements AuthRepository {
   Future<User?> getCurrentUser() async => null;
 
   @override
-  Future<bool> isLoggedIn() async => false;
-
-  @override
   Future<User> fetchProfile() => throw UnimplementedError();
 }
 

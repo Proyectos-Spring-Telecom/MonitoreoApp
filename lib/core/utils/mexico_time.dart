@@ -5,21 +5,6 @@ class MexicoCityTime {
 
   static const Duration offset = Duration(hours: -6);
 
-  static const List<String> _months = [
-    'enero',
-    'febrero',
-    'marzo',
-    'abril',
-    'mayo',
-    'junio',
-    'julio',
-    'agosto',
-    'septiembre',
-    'octubre',
-    'noviembre',
-    'diciembre',
-  ];
-
   /// Fecha y hora de pared en la Ciudad de México.
   static DateTime from(DateTime date) => date.toUtc().add(offset);
 
@@ -42,13 +27,5 @@ class MexicoCityTime {
       parsed.second,
       parsed.millisecond,
     ).subtract(offset);
-  }
-
-  /// "28 de octubre de 2026, 15:40 h".
-  static String format(DateTime date) {
-    final local = from(date);
-    String two(int value) => value.toString().padLeft(2, '0');
-    return '${local.day} de ${_months[local.month - 1]} de ${local.year}, '
-        '${two(local.hour)}:${two(local.minute)} h';
   }
 }

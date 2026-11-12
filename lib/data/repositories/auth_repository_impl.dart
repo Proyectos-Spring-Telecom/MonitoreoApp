@@ -132,15 +132,6 @@ class AuthRepositoryImpl implements AuthRepository, ApiAuthHandler {
     }
   }
 
-  @override
-  Future<bool> isLoggedIn() async {
-    try {
-      return await localDataSource.getUser() != null && await _hasTokens();
-    } catch (_) {
-      return false;
-    }
-  }
-
   Future<bool> _hasTokens() async =>
       await localDataSource.getAccessToken() != null ||
       await localDataSource.getRefreshToken() != null;

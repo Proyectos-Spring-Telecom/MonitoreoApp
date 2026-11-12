@@ -73,7 +73,6 @@ class ServiceOrderFlowController extends ChangeNotifier {
   bool _isLoading = false;
   String? _loadError;
   bool _isGone = false;
-  String? _goneMessage;
   bool _isBusy = false;
   int _stepIndex = 0;
   bool _disposed = false;
@@ -106,7 +105,6 @@ class ServiceOrderFlowController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get loadError => _loadError;
   bool get isGone => _isGone;
-  String? get goneMessage => _goneMessage;
   bool get isBusy => _isBusy;
   bool get isPolling => _pollTimer != null;
   VerificationCodeRequest? get codeRequest => _codeRequest;
@@ -587,7 +585,6 @@ class ServiceOrderFlowController extends ChangeNotifier {
     } on Failure catch (e) {
       if (e.isNotFound) {
         _isGone = true;
-        _goneMessage = e.message;
         _pollTimer?.cancel();
         _pollTimer = null;
         _notify();
