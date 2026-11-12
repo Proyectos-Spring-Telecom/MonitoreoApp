@@ -64,6 +64,12 @@ void main() {
     expect(find.text('EN CURSO'), findsOneWidget);
     expect(find.text('OS-00001'), findsOneWidget);
 
+    // Orden: selector Agenda | Mes, "En curso" y después el calendario.
+    double top(String text) => tester.getTopLeft(find.text(text).first).dy;
+    expect(top('Agenda'), lessThan(top('EN CURSO')));
+    expect(top('EN CURSO'), lessThan(top('OS-00001')));
+    expect(top('OS-00001'), lessThan(top('Octubre 2026')));
+
     // Vista "Agenda": encabezado de mes y un renglón por día, en orden.
     expect(find.text('Octubre 2026'), findsOneWidget);
     expect(find.text('Noviembre 2026'), findsOneWidget);
@@ -110,6 +116,12 @@ void main() {
 
     expect(find.text('Octubre 2026'), findsOneWidget);
     expect(find.text('3 órdenes este mes'), findsOneWidget);
+    // "En curso" también se ve en la vista Mes, debajo del selector.
+    expect(find.text('EN CURSO'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('EN CURSO')).dy,
+      lessThan(tester.getTopLeft(find.text('Octubre 2026')).dy),
+    );
     // Hoy está elegido: sus dos órdenes, abajo.
     expect(find.text('Viernes 30 de octubre'), findsOneWidget);
     expect(find.text('OS-00002'), findsOneWidget);

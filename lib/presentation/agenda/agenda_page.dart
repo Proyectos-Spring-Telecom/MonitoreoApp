@@ -141,6 +141,19 @@ class _AgendaPageState extends State<AgendaPage> {
     );
   }
 
+  /// "En curso" con sus tarjetas, separada de lo programado.
+  List<Widget> _inProgressSection() => [
+        if (_inProgress.isNotEmpty) ...[
+          const _SectionTitle('En curso'),
+          for (final order in _inProgress)
+            _AgendaCard(order: order, onTap: () => _open(order)),
+          const Padding(
+            padding: EdgeInsets.only(top: 4, bottom: 16),
+            child: Divider(height: 1, color: ServiceOrderColors.divider),
+          ),
+        ],
+      ];
+
   Widget _buildList() {
     if (_isLoading) {
       return const Center(
@@ -173,17 +186,16 @@ class _AgendaPageState extends State<AgendaPage> {
             text: 'No tienes órdenes programadas. Desliza hacia abajo para '
                 'actualizar.',
           ),
-        if (_inProgress.isNotEmpty) ...[
-          const _SectionTitle('En curso'),
-          for (final order in _inProgress)
-            _AgendaCard(order: order, onTap: () => _open(order)),
-        ],
+        // Sin programadas no hay calendario: las en curso van solas.
+        if (_scheduled.isEmpty) ..._inProgressSection(),
         if (_scheduled.isNotEmpty) ...[
-          if (_inProgress.isNotEmpty) const SizedBox(height: 12),
+          // Selector Agenda | Mes arriba; debajo, las en curso (en las dos
+          // vistas) y después el calendario.
           AgendaCalendar(
             orders: _scheduled,
             onOpen: _open,
             now: widget.now,
+            header: _inProgressSection(),
           ),
           if (_hasMoreScheduled)
             Padding(
