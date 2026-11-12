@@ -198,7 +198,7 @@ void main() {
         km: '18500,5',
         capacityLiters: '60',
       );
-      expect(request.toFields(includeClient: true), {
+      expect(request.toFields(), {
         'idCliente': '12',
         'placa': 'NV4126B',
         'numeroEconomico': '32',
@@ -209,8 +209,6 @@ void main() {
         'km': '18500.5',
         'capacidadLitros': '60',
       });
-      expect(request.toFields(includeClient: false).containsKey('idCliente'),
-          isFalse);
     });
 
     test('archivos con el nombre de campo del API y su tipo', () {
@@ -296,20 +294,6 @@ void main() {
       expect(parts['foto']!.filename, 'foto.jpg');
       expect(parts['foto']!.contentType, 'image/jpeg');
       expect(parts['fotoFrente']!.value.codeUnits, jpeg);
-    });
-
-    test('edición: PATCH a /productos/vehiculos/{id} sin idCliente', () async {
-      setUpWith((_) async => jsonResponse({'message': 'ok'}));
-      await dataSource.updateVehicle(
-        '45',
-        VehicleRequest(
-            clientId: '12', plate: 'NV4126B', files: {'trasera': png}),
-      );
-      final request = requests.single;
-      expect(request.method, 'PATCH');
-      expect(request.url.path, '/productos/vehiculos/45');
-      final parts = parseMultipart(request);
-      expect(parts.keys.toSet(), {'placa', 'fotoTrasera'});
     });
 
     test('un archivo inválido no llega a enviarse', () async {

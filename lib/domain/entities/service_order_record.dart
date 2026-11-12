@@ -19,8 +19,6 @@ enum ServiceOrderStatus {
   /// Compartir y enviar por correo solo con la orden terminada (§12).
   bool get canShare => this == cerrada || this == noCumplida;
 
-  bool get isFinished => canShare || this == cancelada;
-
   static ServiceOrderStatus? fromKey(String? key) {
     for (final status in values) {
       if (status.key == key) return status;
@@ -294,8 +292,6 @@ class ServiceOrderRecord extends Equatable {
 
   /// Fecha con la que se ordena y agrupa.
   DateTime? get date => appointment ?? capturedAt ?? startedAt ?? createdAt;
-
-  bool get hasLocation => lat != null && lng != null;
 
   /// "ABC1234 · ECO-045", el nombre del producto o `null`.
   String? get vehicleLabel {

@@ -401,6 +401,7 @@ class _OtherVehicleDialogState extends State<_OtherVehicleDialog> {
     });
     try {
       final vehicle = await widget.vehicles.findByPlate(plate);
+      if (!mounted) return;
       if (vehicle == null) {
         setState(() => _error = 'No hay un vehículo con la placa $plate.');
         return;

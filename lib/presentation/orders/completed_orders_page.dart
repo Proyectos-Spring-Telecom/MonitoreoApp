@@ -234,9 +234,8 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
                 backgroundColor: ServiceOrderColors.accent,
                 child: Icon(
                   Icons.tune,
-                  color: isFiltered
-                      ? Colors.white
-                      : ServiceOrderColors.mutedText,
+                  color:
+                      isFiltered ? Colors.white : ServiceOrderColors.mutedText,
                 ),
               ),
             ),
@@ -317,7 +316,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
         child: child!,
       ),
     );
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(
         () => _selectedDate = DateTime(picked.year, picked.month, picked.day),
       );

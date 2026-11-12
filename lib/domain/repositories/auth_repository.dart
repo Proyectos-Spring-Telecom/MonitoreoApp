@@ -4,7 +4,6 @@ abstract class AuthRepository {
   Future<User> login(String email, String password);
   Future<void> logout();
   Future<User?> getCurrentUser();
-  Future<bool> isLoggedIn();
 
   /// Consulta el usuario en sesión al servidor y actualiza la copia local.
   Future<User> fetchProfile();

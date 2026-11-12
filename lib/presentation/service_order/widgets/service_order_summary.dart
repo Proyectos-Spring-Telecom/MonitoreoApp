@@ -9,11 +9,6 @@ const String summaryEmpty = '—';
 String summaryOr(String? value) =>
     value == null || value.trim().isEmpty ? summaryEmpty : value;
 
-String summaryJoin(List<String?> values, String separator) {
-  final parts = values.whereType<String>().where((v) => v.isNotEmpty);
-  return parts.isEmpty ? summaryEmpty : parts.join(separator);
-}
-
 class SummaryCard extends StatelessWidget {
   final IconData icon;
   final String title;

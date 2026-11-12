@@ -1,5 +1,5 @@
 name: monitoreo
-description: Aplicación base Flutter con arquitectura limpia y escalable
+description: App de Spring Telecom para técnicos instaladores (PWA, Android e iOS)
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -32,9 +32,6 @@ dependencies:
   # Geolocalización
   geolocator: ^13.0.1
   
-  # Formateo de fechas
-  intl: ^0.19.0
-  
   # Alertas
   quickalert: ^1.0.0
   image_picker: ^1.2.4
@@ -61,14 +58,11 @@ dev_dependencies:
 flutter:
   uses-material-design: true
 
-  # Assets (imágenes, iconos, etc.)
+  # Imágenes que usa la app (el ícono de la app no va aquí: lo usa
+  # flutter_launcher_icons).
   assets:
-    - assets/images/
     - assets/images/logos/
-    - assets/images/logos/SPRING-HORIZONTAL.png
-    - assets/images/logos/favicon.png
     - assets/images/backgrounds/
-    - assets/images/backgrounds/bienvenida.jpg
 
 # Configuración para generar iconos de la aplicación
 flutter_launcher_icons:

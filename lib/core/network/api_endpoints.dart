@@ -9,7 +9,6 @@ class ApiEndpoints {
   static const String changePassword = '/usuarios/actualizar/contrasena';
 
   static const String vehicles = '/productos/vehiculos';
-  static String vehicle(String id) => '/productos/vehiculos/$id';
   static String vehicleByPlate(String plate) =>
       '/productos/vehiculos/placa/${Uri.encodeComponent(plate)}';
 

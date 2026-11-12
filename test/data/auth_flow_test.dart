@@ -98,6 +98,12 @@ class Harness {
 
   List<String> get paths => requests.map((r) => r.url.path).toList();
 
+  /// Hay usuario y tokens guardados en el teléfono.
+  Future<bool> hasSession() async =>
+      await local.getUser() != null &&
+      (await local.getAccessToken() != null ||
+          await local.getRefreshToken() != null);
+
   Future<void> seedSession({
     String access = 'old-access',
     String? refresh = 'refresh-1',
@@ -151,7 +157,7 @@ void main() {
 
       expect(h.secure.values[AppConstants.authTokenKey], 'access-1');
       expect(h.secure.values[AppConstants.refreshTokenKey], 'refresh-1');
-      expect(await h.repository.isLoggedIn(), isTrue);
+      expect(await h.hasSession(), isTrue);
     });
 
     test('un usuario que no es rol 8 no entra y se cierra su sesión', () async {
@@ -175,7 +181,7 @@ void main() {
       );
       expect(h.paths, ['/login', '/login/me', '/login/logout']);
       expect(h.secure.values, isEmpty);
-      expect(await h.repository.isLoggedIn(), isFalse);
+      expect(await h.hasSession(), isFalse);
     });
 
     test('acepta tokens en la raíz con claves token/refreshToken', () async {
@@ -264,7 +270,7 @@ void main() {
       await expectLater(
           h.repository.login('a@b.mx', 'x'), throwsA(isA<AuthFailure>()));
       expect(h.secure.values, isEmpty);
-      expect(await h.repository.isLoggedIn(), isFalse);
+      expect(await h.hasSession(), isFalse);
     });
 
     test('sin conexión → NetworkFailure', () async {
@@ -425,7 +431,7 @@ void main() {
       final h = await Harness.create((_) async => jsonResponse(null));
       await h.local.saveUser(UserModel.fromJson(meResponse));
       expect(await h.repository.getCurrentUser(), isNull);
-      expect(await h.repository.isLoggedIn(), isFalse);
+      expect(await h.hasSession(), isFalse);
     });
 
     test('el usuario guardado conserva todos sus campos', () async {
@@ -517,7 +523,7 @@ void main() {
         '/usuarios/actualizar/contrasena',
       ]);
       expect(h.expiredCalls, 0);
-      expect(await h.repository.isLoggedIn(), isTrue);
+      expect(await h.hasSession(), isTrue);
     });
   });
 }
