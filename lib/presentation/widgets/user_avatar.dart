@@ -65,6 +65,11 @@ class UserAvatar extends StatelessWidget {
                   height: size,
                   fit: BoxFit.cover,
                   semanticLabel: 'Foto de perfil',
+                  // Web: la URL es fija y el navegador puede tener guardada
+                  // una copia sin encabezados CORS (S3 no manda `Vary` si la
+                  // petición no trae `Origin`). Si la carga por CORS falla,
+                  // se muestra con un <img>, que no los necesita.
+                  webHtmlElementStrategy: WebHtmlElementStrategy.fallback,
                   frameBuilder: (context, child, frame, synchronous) =>
                       synchronous || frame != null ? child : fallback,
                   errorBuilder: (context, error, stackTrace) => fallback,
