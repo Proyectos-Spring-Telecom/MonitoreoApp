@@ -9,7 +9,6 @@ import '../../widgets/user_avatar.dart';
 class AppDrawer extends StatelessWidget {
   static const Color _green = Color(0xFF34C38F);
   static const Color _amber = Color(0xFFF5A524);
-  static const Color _purple = Color(0xFFA78BFA);
   static const Color _red = Color(0xFFF26D6D);
   static const Color _cyan = Color(0xFF4FC3E8);
 
@@ -162,7 +161,7 @@ class AppDrawer extends StatelessWidget {
                   ),
                   _DrawerItem(
                     icon: Icons.person_outline,
-                    color: _purple,
+                    color: ServiceOrderColors.violet,
                     label: 'Perfil',
                     selected: currentRoute == AppConstants.profileRoute,
                     onTap: () => _navigate(context, AppConstants.profileRoute),

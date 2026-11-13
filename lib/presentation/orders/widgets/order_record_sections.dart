@@ -244,6 +244,16 @@ class OrderRecordSections extends StatelessWidget {
     final equipment = (order.equipment ?? const InstallationSummary())
         .withFallback(equipmentFallback);
 
+    // En un cambio se muestran los dos: lo que entra y lo que sale.
+    final changesDevice = type == ServiceType.cEquipo;
+    final changesSim = type == ServiceType.cSim;
+    final current = order.installation ?? const InstallationSummary();
+    final incoming = (order.resultingInstallation ??
+            order.newEquipment ??
+            const InstallationSummary())
+        .withFallback(equipmentFallback);
+    final closed = order.status == ServiceOrderStatus.cerrada;
+
     final rows = <(String, String)>[
       if (type?.takesOutgoingStatus ?? false)
         ('Destino del que sale', value(outgoing?.label)),
@@ -266,17 +276,52 @@ class OrderRecordSections extends StatelessWidget {
       onEdit: onEditInstallation,
       children: [
         SummaryInfoRow('Vehículo', value(order.vehicleLabel)),
-        SummaryInfoRow('Tipo de equipo', value(equipment.equipmentType)),
-        _EquipmentDetail(
-          icon: Icons.memory_outlined,
-          label: 'Dispositivo',
-          text: equipment.device,
+        SummaryInfoRow(
+          'Tipo de equipo',
+          value(changesDevice
+              ? incoming.equipmentType ?? current.equipmentType
+              : equipment.equipmentType),
         ),
-        _EquipmentDetail(
-          icon: Icons.sim_card_outlined,
-          label: 'SIM',
-          text: equipment.sim,
-        ),
+        if (changesDevice) ...[
+          _EquipmentDetail(
+            icon: Icons.memory_outlined,
+            label: 'Dispositivo nuevo',
+            text: incoming.device,
+            change: _Change.incoming,
+          ),
+          _EquipmentDetail(
+            icon: Icons.memory_outlined,
+            label: closed ? 'Dispositivo retirado' : 'Dispositivo a quitar',
+            text: current.device,
+            change: _Change.outgoing,
+          ),
+        ] else
+          _EquipmentDetail(
+            icon: Icons.memory_outlined,
+            label: 'Dispositivo',
+            text: changesSim
+                ? current.device ?? equipment.device
+                : equipment.device,
+          ),
+        if (changesSim) ...[
+          _EquipmentDetail(
+            icon: Icons.sim_card_outlined,
+            label: 'SIM nueva',
+            text: incoming.sim,
+            change: _Change.incoming,
+          ),
+          _EquipmentDetail(
+            icon: Icons.sim_card_outlined,
+            label: closed ? 'SIM retirada' : 'SIM a quitar',
+            text: current.sim,
+            change: _Change.outgoing,
+          ),
+        ] else
+          _EquipmentDetail(
+            icon: Icons.sim_card_outlined,
+            label: 'SIM',
+            text: changesDevice ? current.sim ?? equipment.sim : equipment.sim,
+          ),
         for (final (label, text) in rows) SummaryInfoRow(label, text),
         OrderRemotePhotos(
           title: 'Fotografías del vehículo',
@@ -348,6 +393,24 @@ class OrderRecordSections extends StatelessWidget {
   }
 }
 
+/// En un cambio: lo que se instala o lo que se quita.
+enum _Change {
+  incoming(ServiceOrderColors.success, 'Se instala'),
+  outgoing(CircleStatusIcon.removed, 'Se quita');
+
+  const _Change(this.color, this.semanticLabel);
+
+  final Color color;
+  final String semanticLabel;
+
+  Widget get badge => switch (this) {
+        _Change.incoming =>
+          CircleStatusIcon.check(semanticLabel: semanticLabel),
+        _Change.outgoing =>
+          CircleStatusIcon.cross(semanticLabel: semanticLabel),
+      };
+}
+
 /// Dispositivo o SIM a todo lo ancho. El texto del API viene como
 /// "Suntech ST210 - IMEI 3333 - Serie: 0009": la primera parte es el título
 /// y cada dato va en su renglón.
@@ -356,10 +419,14 @@ class _EquipmentDetail extends StatelessWidget {
   final String label;
   final String? text;
 
+  /// En un cambio, marca con ✓ lo que entra y con ✕ lo que sale.
+  final _Change? change;
+
   const _EquipmentDetail({
     required this.icon,
     required this.label,
     required this.text,
+    this.change,
   });
 
   static final RegExp _keyed = RegExp(
@@ -415,64 +482,80 @@ class _EquipmentDetail extends StatelessWidget {
             decoration: BoxDecoration(
               color: ServiceOrderColors.field,
               borderRadius: BorderRadius.circular(12),
+              border: change == null
+                  ? null
+                  : Border.all(color: change!.color.withValues(alpha: 0.45)),
             ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (title != null)
-                  Row(
-                    children: [
-                      Icon(icon, size: 18, color: ServiceOrderColors.accent),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          title,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                for (final (index, (key, detail)) in details.indexed)
-                  Padding(
-                    padding: EdgeInsets.only(
-                      top: index == 0 && title == null ? 0 : 8,
-                    ),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        SizedBox(
-                          width: 72,
-                          child: Text(
-                            key,
-                            style: const TextStyle(
-                              color: ServiceOrderColors.mutedText,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: SelectableText(
-                            detail,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              letterSpacing: 0.3,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                Expanded(child: _content(title, details)),
+                if (change case final change?) ...[
+                  const SizedBox(width: 8),
+                  change.badge,
+                ],
               ],
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _content(String? title, List<(String, String)> details) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (title != null)
+          Row(
+            children: [
+              Icon(icon, size: 18, color: ServiceOrderColors.accent),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        for (final (index, (key, detail)) in details.indexed)
+          Padding(
+            padding: EdgeInsets.only(
+              top: index == 0 && title == null ? 0 : 8,
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: 72,
+                  child: Text(
+                    key,
+                    style: const TextStyle(
+                      color: ServiceOrderColors.mutedText,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: SelectableText(
+                    detail,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
     );
   }
 }

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../domain/entities/service_order.dart';
 import '../../domain/entities/service_order_record.dart';
 import '../orders/order_models.dart';
 import '../service_order/widgets/service_order_summary.dart';
@@ -342,16 +341,6 @@ class _AgendaCalendarState extends State<AgendaCalendar> {
   }
 }
 
-/// Color de cada tipo de servicio, con los colores de la app.
-Color agendaTypeColor(ServiceOrderRecord order) =>
-    switch (order.scheduledType ?? order.type) {
-      ServiceType.instalacion => ServiceOrderColors.accent,
-      ServiceType.revision => ServiceOrderColors.success,
-      ServiceType.cSim || ServiceType.cEquipo => ServiceOrderColors.warning,
-      ServiceType.desinstalacion => const Color(0xFFF26D6D),
-      null => ServiceOrderColors.hintText,
-    };
-
 class _ViewSwitch extends StatelessWidget {
   final AgendaView value;
   final ValueChanged<AgendaView> onChanged;
@@ -539,7 +528,7 @@ class AgendaEventTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = agendaTypeColor(order);
+    final color = orderTypeColor(order);
     final start = order.appointment;
     final end = order.appointmentEnd;
     final time = start == null
@@ -744,7 +733,7 @@ class _MonthCell extends StatelessWidget {
                     margin: const EdgeInsets.only(bottom: 2),
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     decoration: BoxDecoration(
-                      color: agendaTypeColor(order),
+                      color: orderTypeColor(order),
                       borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(

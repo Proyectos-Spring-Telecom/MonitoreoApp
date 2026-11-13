@@ -623,6 +623,7 @@ class _CompletedOrdersPageState extends State<CompletedOrdersPage> {
                         ServiceOrderTag(
                           label: orderTypeLabel(order),
                           icon: orderTypeIcon(order),
+                          color: orderTypeColor(order),
                         ),
                       ],
                     ),

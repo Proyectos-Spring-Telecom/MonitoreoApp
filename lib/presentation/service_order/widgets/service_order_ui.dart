@@ -15,8 +15,61 @@ class ServiceOrderColors {
   static const Color accentBackground = Color(0xFF2B4468);
   static const Color success = Color(0xFF34C38F);
   static const Color warning = Color(0xFFF5A524);
+  static const Color violet = Color(0xFFA78BFA);
   static const Color disabledButton = Color(0xFFA6A5BA);
   static const Color disabledButtonText = Color(0xFFDAD9E6);
+}
+
+/// Ícono dentro de un círculo con el color de fondo y borde suaves. Es el
+/// ✓/✕ de "SIM nueva"/"SIM a quitar" y de las pruebas correctas o fallidas.
+class CircleStatusIcon extends StatelessWidget {
+  static const Color removed = Color(0xFFF26D6D);
+
+  final IconData icon;
+  final Color color;
+  final double size;
+  final String? semanticLabel;
+
+  const CircleStatusIcon(
+    this.icon,
+    this.color, {
+    super.key,
+    this.size = 26,
+    this.semanticLabel,
+  });
+
+  /// ✓ verde: correcto o lo que se instala.
+  const CircleStatusIcon.check({
+    Key? key,
+    double size = 26,
+    String? semanticLabel,
+  }) : this(Icons.check_rounded, ServiceOrderColors.success,
+            key: key, size: size, semanticLabel: semanticLabel);
+
+  /// ✕ roja: fallido o lo que se quita.
+  const CircleStatusIcon.cross({
+    Key? key,
+    double size = 26,
+    String? semanticLabel,
+  }) : this(Icons.close_rounded, removed,
+            key: key, size: size, semanticLabel: semanticLabel);
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: semanticLabel,
+      child: Container(
+        width: size,
+        height: size,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.16),
+          shape: BoxShape.circle,
+          border: Border.all(color: color.withValues(alpha: 0.6)),
+        ),
+        child: Icon(icon, size: size * 0.62, color: color),
+      ),
+    );
+  }
 }
 
 /// Flecha de regreso que siempre se muestra, aunque la pantalla se haya
