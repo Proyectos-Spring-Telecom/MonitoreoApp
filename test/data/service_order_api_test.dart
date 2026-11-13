@@ -583,6 +583,21 @@ void main() {
         {'observaciones': 'GPS de otra marca bajo el tablero'});
   });
 
+  test('autorización de un equipo de otro proveedor (reporte manual)',
+      () async {
+    setUpWith(
+        (_) async => jsonResponse({'message': 'Autorización solicitada'}));
+    await repository.requestAuthorization(
+      '7',
+      observations: 'GPS de otro proveedor',
+      thirdParty: true,
+    );
+    expect(body(requests.single), {
+      'observaciones': 'GPS de otro proveedor',
+      'equipoTercero': true,
+    });
+  });
+
   group('código de verificación (§8)', () {
     test('pedir: sin cuerpo y con la expiración', () async {
       setUpWith((_) async => jsonResponse({

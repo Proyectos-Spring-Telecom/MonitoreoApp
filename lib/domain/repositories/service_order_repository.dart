@@ -42,9 +42,12 @@ abstract class ServiceOrderRepository {
     required String label,
   });
 
+  /// [thirdParty]: el técnico reportó un equipo que Next no tiene registrado
+  /// (otro proveedor); se envía `equipoTercero: true`.
   Future<void> requestAuthorization(
     String orderId, {
     required String observations,
+    bool thirdParty = false,
   });
 
   Future<VerificationCodeRequest> requestCode(String orderId);

@@ -175,6 +175,54 @@ class ServiceOrderFlowController extends ChangeNotifier {
     notifyListeners();
   }
 
+  // ---------------------------------------------------------------------------
+  // Equipo encontrado en el alta (§7)
+
+  bool _reportingEquipment = false;
+
+  /// Alta en curso con vehículo fijado y sin autorización pedida. El servidor
+  /// solo avisa del equipo instalado si Next ya lo conocía; con un vehículo
+  /// recién registrado el técnico lo reporta al encontrarlo.
+  bool get canReportExistingEquipment {
+    final order = _order;
+    return order != null &&
+        order.type == ServiceType.instalacion &&
+        order.status == ServiceOrderStatus.borrador &&
+        order.productId != null &&
+        order.authorization == null &&
+        !order.needsAuthorization;
+  }
+
+  /// Se muestra la solicitud de autorización en el paso del vehículo: porque
+  /// lo indicó el servidor o porque el técnico reportó el equipo.
+  bool get showsAuthorizationRequest {
+    final order = _order;
+    if (order == null || order.authorization != null) return false;
+    return order.needsAuthorization ||
+        (_reportingEquipment && canReportExistingEquipment);
+  }
+
+  /// `true` si la solicitud la abrió el técnico (y la puede cancelar).
+  bool get isReportingExistingEquipment =>
+      _reportingEquipment && canReportExistingEquipment;
+
+  /// El técnico encontró un equipo instalado: abre la solicitud de
+  /// autorización en el paso del vehículo.
+  void reportExistingEquipment() {
+    if (!canReportExistingEquipment) return;
+    _reportingEquipment = true;
+    if (canEnter(ServiceOrderStep.vehicle)) {
+      _stepIndex = steps.indexOf(ServiceOrderStep.vehicle);
+    }
+    notifyListeners();
+  }
+
+  void cancelExistingEquipmentReport() {
+    if (!_reportingEquipment) return;
+    _reportingEquipment = false;
+    notifyListeners();
+  }
+
   void next() {
     final current = currentStep;
     if (current == null || isBlocking(current)) return;
@@ -362,7 +410,16 @@ class ServiceOrderFlowController extends ChangeNotifier {
         await refresh();
       });
 
-  /// Sube la foto del equipo encontrado y pide la autorización (§7).
+  /// Mientras el API no acepte equipos de otro proveedor responde 400 al
+  /// reporte manual; se le explica al técnico qué hacer.
+  static const String thirdPartyNotSupportedMessage =
+      'Next no tiene registrado este equipo y todavía no se puede pedir '
+      'autorización para equipos de otro proveedor desde la App. Comunícate '
+      'con operación.';
+
+  /// Sube la foto del equipo encontrado y pide la autorización (§7). Si el
+  /// técnico reportó el equipo (Next no lo detectó) se marca como de otro
+  /// proveedor.
   Future<void> requestAuthorization({
     Uint8List? photo,
     required String photoLabel,
@@ -377,10 +434,21 @@ class ServiceOrderFlowController extends ChangeNotifier {
             photoLabel,
           );
         }
-        await _guard(() => repository.requestAuthorization(
-              orderId,
-              observations: observations,
-            ));
+        final thirdParty = isReportingExistingEquipment;
+        try {
+          await _guard(() => repository.requestAuthorization(
+                orderId,
+                observations: observations,
+                thirdParty: thirdParty,
+              ));
+        } on Failure catch (e) {
+          if (!thirdParty || e.statusCode != 400) rethrow;
+          throw const ServerFailure(
+            thirdPartyNotSupportedMessage,
+            statusCode: 400,
+          );
+        }
+        _reportingEquipment = false;
         await refresh();
       });
 

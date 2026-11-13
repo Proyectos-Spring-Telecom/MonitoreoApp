@@ -149,7 +149,7 @@ La pantalla muestra servicio programado, cliente, cita, vehículo, quién progra
 2. Si no existe: `POST /productos/vehiculos` con `idCliente` de la orden, `placa` y **las 6 fotos obligatorias** (principal, frontal, trasera, laterales y tarjeta de circulación); número económico, marca, modelo, año, color, VIN y combustible son opcionales. Mientras se registra, el botón muestra «Registrando vehículo…» y el formulario queda bloqueado para evitar un doble registro.
 3. `PATCH { idProducto }`.
 4. Si `faltantesParaCerrar` dice que el vehículo ya tiene equipo: foto `equipo_existente` y observaciones (las dos se piden en la App), `POST /:id/autorizacion`, y se consulta `GET /:id` cada 12 s hasta que `autorizacion` sea:
-   - `autorizada`: se continúa con el alta (Next da de baja la instalación anterior al cerrar);
+   - `autorizada`: se continúa con el alta (si el equipo estaba registrado en Next, al cerrar se da de baja la instalación anterior);
    - `rechazada`: la orden queda `no_cumplida` y se muestra.
 5. Una vez pedida la autorización el vehículo ya no se puede cambiar.
 

@@ -248,6 +248,14 @@ Después: `PATCH /:id { idProducto }`.
 
 Luego consulta `GET /:id` cada 12 s hasta que `autorizacion` sea `autorizada` o `rechazada` (rechazada deja la orden en `no_cumplida`).
 
+**Reporte manual:** si el vehículo se registró en la app (Next no conocía el equipo), `faltantesParaCerrar` no trae el aviso. El técnico lo reporta (equipo de otro proveedor) y la app usa la misma secuencia, agregando un campo:
+
+`POST /:id/autorizacion { observaciones, equipoTercero: true }`
+
+- **Pendiente en backend:** aceptar esta solicitud aunque Next no tenga equipo registrado y seguir el ciclo `pendiente → autorizada / rechazada`. Al cerrar no hay instalación anterior que dar de baja.
+- Hoy responde 400; la app muestra «Next no tiene registrado este equipo y todavía no se puede pedir autorización para equipos de otro proveedor desde la App. Comunícate con operación.» Cuando el backend lo acepte, la app funciona sin cambios.
+- La solicitud normal (equipo detectado por el servidor) no envía `equipoTercero`.
+
 ### Código de verificación (§8)
 
 | Método | Ruta | Envía | Respuesta |
@@ -352,6 +360,7 @@ Nunca se guardan respuestas del API, fotos ni la contraseña. El service worker 
 |---|---|
 | Duración y rotación del refresh token; que el logout lo invalide | Por confirmar |
 | Filtro por `idCliente` en `/instalaciones/paginado` | Solicitado. Mientras tanto la app revisa las primeras 50 filas del vehículo |
+| `POST /:id/autorizacion { observaciones, equipoTercero: true }` aceptado para equipos de otro proveedor (hoy responde 400) | Pendiente en backend |
 | Campo explícito para saber que la orden necesita autorización | Por confirmar. Hoy se detecta por el texto de `faltantesParaCerrar` |
 | Filtros de «Atender otro vehículo» | Por confirmar |
 | Textos con acentos mal codificados (`SupÃ©r`) | La app los corrige; conviene arreglarlo en la base de datos |
