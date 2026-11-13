@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../core/constants/app_colors.dart';
@@ -163,17 +162,11 @@ class _VerificationStepState extends State<VerificationStep> {
                     isRequired: true,
                   ),
                   const SizedBox(height: 16),
-                  ServiceOrderTextField(
+                  ServiceOrderCodeField(
                     label: 'Código de 6 dígitos',
-                    hint: '000000',
                     controller: _codeController,
                     isRequired: true,
                     enabled: !controller.isBusy,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [
-                      FilteringTextInputFormatter.digitsOnly,
-                      LengthLimitingTextInputFormatter(6),
-                    ],
                     errorText: _showErrors && _code.length != 6
                         ? 'El código tiene 6 dígitos'
                         : null,

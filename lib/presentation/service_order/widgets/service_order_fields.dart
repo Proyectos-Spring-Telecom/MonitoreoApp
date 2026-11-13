@@ -172,6 +172,227 @@ class ServiceOrderTextField extends StatelessWidget {
   }
 }
 
+/// Código numérico con un recuadro por dígito. Por debajo es un solo
+/// `TextField` invisible que cubre los recuadros: el teclado, pegar y el
+/// autollenado del código (iOS/Android) funcionan igual que en un campo normal.
+class ServiceOrderCodeField extends StatefulWidget {
+  final String label;
+  final TextEditingController controller;
+  final int length;
+  final bool isRequired;
+  final bool enabled;
+  final String? errorText;
+
+  const ServiceOrderCodeField({
+    super.key,
+    required this.label,
+    required this.controller,
+    this.length = 6,
+    this.isRequired = false,
+    this.enabled = true,
+    this.errorText,
+  });
+
+  @override
+  State<ServiceOrderCodeField> createState() => _ServiceOrderCodeFieldState();
+}
+
+class _ServiceOrderCodeFieldState extends State<ServiceOrderCodeField> {
+  final _focusNode = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focusNode.addListener(_onChanged);
+    widget.controller.addListener(_keepCursorAtEnd);
+  }
+
+  @override
+  void didUpdateWidget(ServiceOrderCodeField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller) {
+      oldWidget.controller.removeListener(_keepCursorAtEnd);
+      widget.controller.addListener(_keepCursorAtEnd);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.controller.removeListener(_keepCursorAtEnd);
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  void _onChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// Los dígitos siempre se escriben y borran al final, como en los recuadros.
+  void _keepCursorAtEnd() {
+    final value = widget.controller.value;
+    final end = value.text.length;
+    if (value.selection.isCollapsed && value.selection.baseOffset == end) {
+      _onChanged();
+      return;
+    }
+    widget.controller.selection = TextSelection.collapsed(offset: end);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final code = widget.controller.text;
+    final hasError = widget.errorText != null;
+    final focused = _focusNode.hasFocus && widget.enabled;
+    final active = code.length.clamp(0, widget.length - 1);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _FieldLabel(widget.label, isRequired: widget.isRequired),
+          Semantics(
+            label: widget.label,
+            child: Stack(
+              children: [
+                ExcludeSemantics(
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < widget.length; i++) ...[
+                        if (i > 0) const SizedBox(width: 8),
+                        Expanded(
+                          child: _CodeDigitBox(
+                            digit: i < code.length ? code[i] : null,
+                            active: focused && i == active,
+                            hasError: hasError,
+                            enabled: widget.enabled,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Positioned.fill(
+                  child: TextField(
+                    controller: widget.controller,
+                    focusNode: _focusNode,
+                    enabled: widget.enabled,
+                    keyboardType: TextInputType.number,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.oneTimeCode],
+                    inputFormatters: [
+                      FilteringTextInputFormatter.digitsOnly,
+                      LengthLimitingTextInputFormatter(widget.length),
+                    ],
+                    showCursor: false,
+                    enableInteractiveSelection: false,
+                    expands: true,
+                    maxLines: null,
+                    style: const TextStyle(
+                      color: Colors.transparent,
+                      fontSize: 1,
+                    ),
+                    cursorColor: Colors.transparent,
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      counterText: '',
+                      isCollapsed: true,
+                      filled: false,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (hasError)
+            Padding(
+              padding: const EdgeInsets.only(top: 8, left: 4),
+              child: Text(
+                widget.errorText!,
+                style: const TextStyle(color: AppColors.error, fontSize: 12.5),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Un recuadro del código: fondo azul oscuro con borde y brillo azul.
+class _CodeDigitBox extends StatelessWidget {
+  final String? digit;
+  final bool active;
+  final bool hasError;
+  final bool enabled;
+
+  const _CodeDigitBox({
+    required this.digit,
+    required this.active,
+    required this.hasError,
+    required this.enabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final filled = digit != null;
+    final color =
+        hasError && !filled ? AppColors.error : ServiceOrderColors.accent;
+    final strong = active || filled;
+
+    return AnimatedOpacity(
+      duration: const Duration(milliseconds: 150),
+      opacity: enabled ? 1 : 0.5,
+      child: AspectRatio(
+        aspectRatio: 0.8,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFF1E2A4A), Color(0xFF111833)],
+            ),
+            border: Border.all(
+              color:
+                  color.withValues(alpha: active ? 1 : (strong ? 0.75 : 0.4)),
+              width: active ? 1.8 : 1.3,
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: color.withValues(
+                    alpha: active ? 0.45 : (strong ? 0.25 : 0.1)),
+                blurRadius: active ? 12 : 8,
+              ),
+            ],
+          ),
+          child: filled
+              ? Text(
+                  digit!,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 28,
+                    fontWeight: FontWeight.w500,
+                    height: 1,
+                  ),
+                )
+              : active
+                  ? Container(
+                      width: 2,
+                      height: 26,
+                      decoration: BoxDecoration(
+                        color: ServiceOrderColors.accent,
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    )
+                  : null,
+        ),
+      ),
+    );
+  }
+}
+
 /// Campo de selección con búsqueda: al tocarlo abre un panel con un buscador
 /// y la lista filtrada.
 class ServiceOrderDropdown extends StatelessWidget {
