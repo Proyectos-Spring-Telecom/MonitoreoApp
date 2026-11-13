@@ -243,6 +243,18 @@ class _VehicleStepState extends State<VehicleStep> {
     });
   }
 
+  /// El técnico se equivocó: se cierra la solicitud que abrió.
+  void _cancelEquipmentReport() {
+    final controller = context.read<ServiceOrderFlowController>();
+    controller.discardPhoto(ServiceOrderSection.existingEquipmentPhoto);
+    setState(() {
+      _equipmentPhoto.clear();
+      _observationsController.clear();
+      _showErrors = false;
+    });
+    controller.cancelExistingEquipmentReport();
+  }
+
   Future<void> _requestAuthorization() async {
     final controller = context.read<ServiceOrderFlowController>();
     final photo = _equipmentPhoto[ServiceOrderSection.existingEquipmentPhoto];
@@ -706,13 +718,36 @@ class _VehicleStepState extends State<VehicleStep> {
             color: ServiceOrderColors.success,
             title: 'Desinstalación autorizada',
             message: 'Desinstala el equipo encontrado y continúa con el alta. '
-                'Al cerrar, Next da de baja la instalación anterior.',
+                'Si estaba registrado en Next, al cerrar se da de baja la '
+                'instalación anterior.',
           ),
         ];
       case AuthorizationStatus.rechazada:
         return const [];
       case null:
-        if (!order.needsAuthorization) return const [];
+        if (!controller.showsAuthorizationRequest) {
+          if (!controller.canReportExistingEquipment) return const [];
+          // Next no conocía el equipo (p. ej. vehículo recién registrado):
+          // el técnico lo reporta al encontrarlo.
+          return [
+            OutlinedButton.icon(
+              onPressed:
+                  controller.isBusy ? null : controller.reportExistingEquipment,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: ServiceOrderColors.warning,
+                side: BorderSide(
+                  color: ServiceOrderColors.warning.withValues(alpha: 0.6),
+                ),
+                minimumSize: const Size.fromHeight(46),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              icon: const Icon(Icons.warning_amber_outlined),
+              label: const Text('El vehículo ya tiene un equipo instalado'),
+            ),
+          ];
+        }
         return [
           FlowNoticeCard(
             icon: Icons.warning_amber_outlined,
@@ -784,6 +819,16 @@ class _VehicleStepState extends State<VehicleStep> {
                 icon: const Icon(Icons.send_outlined),
                 label: const Text('Pedir autorización'),
               ),
+              if (controller.isReportingExistingEquipment) ...[
+                const SizedBox(height: 6),
+                TextButton(
+                  onPressed: controller.isBusy ? null : _cancelEquipmentReport,
+                  style: TextButton.styleFrom(
+                    foregroundColor: ServiceOrderColors.mutedText,
+                  ),
+                  child: const Text('Cancelar, no tiene equipo'),
+                ),
+              ],
             ],
           ),
         ];

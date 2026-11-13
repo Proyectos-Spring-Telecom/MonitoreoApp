@@ -78,7 +78,7 @@ Barra inferior con cuatro pestañas y menú lateral con las mismas más **Cambio
 Se abre al tocar una orden de la agenda. Resumen; el detalle está en [OPERACION_APLICACION.md](OPERACION_APLICACION.md):
 
 1. **Datos de la visita** e **iniciar**: muestra cliente, cita, vehículo, quién programó, observaciones, «Unidad x de y» y referencia CRM. En un mantenimiento se confirma el servicio y se puede **atender otro vehículo** por placa.
-2. **Vehículo** (solo alta): buscar por placa o registrarlo con 6 fotos; si ya tiene equipo, pedir autorización a operación y esperar.
+2. **Vehículo** (solo alta): buscar por placa o registrarlo con 6 fotos; si ya tiene equipo, pedir autorización a operación y esperar. Si el servidor no lo detecta (p. ej. vehículo recién registrado), el técnico lo reporta con «El vehículo ya tiene un equipo instalado» en el paso Vehículo o desde ⋮ → «Ya tiene un equipo instalado» en cualquier paso.
 3. **Código de verificación** (solo mantenimientos): el operador lo dicta.
 4. **Instalación:** equipo y SIM que entran, o destino del que sale.
 5. **Checklist:** accesorios del vehículo, funcionamiento, fallas y fotos.
@@ -138,6 +138,7 @@ Las reglas que valida el servidor se respetan también en la app para avisar ant
 | RN-13 | Primero se busca por placa. Si existe y es del cliente, se usa sin modificarlo. |
 | RN-14 | Un vehículo nuevo exige la placa (máx. 10 caracteres, letras, números y guion) y **6 fotos**: principal, frontal, trasera, lateral derecha, lateral izquierda y tarjeta de circulación. Cada archivo: PNG, JPG, WEBP o PDF, máximo 3 MB. |
 | RN-15 | Si el vehículo ya tiene equipo, se exige foto `equipo_existente` y observaciones para pedir la autorización. Autorizada → sigue el alta; rechazada → la orden queda no cumplida. |
+| RN-15b | En un alta, si el servidor no detectó el equipo (vehículo nuevo en Next), el técnico puede reportarlo y pedir la misma autorización como equipo de otro proveedor (`equipoTercero: true`); puede cancelar mientras no la haya enviado. Requiere que backend lo acepte (hoy 400, la app pide comunicarse con operación). |
 | RN-16 | Después de pedir la autorización el vehículo ya no se puede cambiar. |
 
 ### Código de verificación (mantenimientos)

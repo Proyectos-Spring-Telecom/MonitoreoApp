@@ -209,6 +209,82 @@ void main() {
   });
 
   group('autorización y pruebas: consulta periódica', () {
+    test('vehículo recién registrado: el técnico reporta el equipo', () async {
+      ServiceOrderRecord alta({AuthorizationStatus? authorization}) =>
+          scheduledOrder(
+            type: ServiceType.instalacion,
+            status: ServiceOrderStatus.borrador,
+            productId: '812',
+            authorization: authorization,
+          );
+      final controller = controllerFor(alta());
+      await controller.load();
+
+      // El servidor no lo detectó: no bloquea, pero se puede reportar.
+      expect(controller.order!.needsAuthorization, isFalse);
+      expect(controller.isBlocking(ServiceOrderStep.vehicle), isFalse);
+      expect(controller.canReportExistingEquipment, isTrue);
+      expect(controller.showsAuthorizationRequest, isFalse);
+
+      // Desde la instalación regresa al vehículo con la solicitud abierta.
+      controller.next();
+      expect(controller.currentStep, ServiceOrderStep.installation);
+      controller.reportExistingEquipment();
+      expect(controller.currentStep, ServiceOrderStep.vehicle);
+      expect(controller.showsAuthorizationRequest, isTrue);
+      expect(controller.isReportingExistingEquipment, isTrue);
+
+      // Se puede cancelar si fue un error.
+      controller.cancelExistingEquipmentReport();
+      expect(controller.showsAuthorizationRequest, isFalse);
+
+      // Mientras el API no acepte equipos de otro proveedor (400) se
+      // explica qué hacer y la solicitud sigue abierta.
+      controller.reportExistingEquipment();
+      repository.failures['authorization:tercero'] = const ServerFailure(
+        'Ese vehículo no tiene un equipo de esa clase registrado en Next',
+        statusCode: 400,
+      );
+      await expectLater(
+        controller.requestAuthorization(
+          photoLabel: 'Equipo encontrado',
+          observations: 'GPS de otro proveedor',
+        ),
+        throwsA(isA<Failure>().having((e) => e.message, 'message',
+            ServiceOrderFlowController.thirdPartyNotSupportedMessage)),
+      );
+      expect(controller.showsAuthorizationRequest, isTrue);
+
+      // Con el backend listo sigue el ciclo normal.
+      repository.onAction = (action, repo) {
+        if (action == 'authorization:tercero') {
+          repo.order = alta(authorization: AuthorizationStatus.pendiente);
+        }
+      };
+      await controller.requestAuthorization(
+        photo: Uint8List.fromList([1, 2, 3]),
+        photoLabel: 'Equipo encontrado',
+        observations: 'GPS de otra marca bajo el tablero',
+      );
+      expect(repository.calls, contains('authorization:tercero'));
+      expect(controller.isPolling, isTrue);
+      expect(controller.isBlocking(ServiceOrderStep.vehicle), isTrue);
+      expect(controller.canReportExistingEquipment, isFalse);
+      controller.dispose();
+    });
+
+    test('solo en el alta se puede reportar un equipo instalado', () async {
+      final controller = controllerFor(scheduledOrder(
+        type: ServiceType.revision,
+        status: ServiceOrderStatus.borrador,
+        productId: '812',
+      ));
+      await controller.load();
+      expect(controller.canReportExistingEquipment, isFalse);
+      controller.reportExistingEquipment();
+      expect(controller.showsAuthorizationRequest, isFalse);
+    });
+
     test('pendiente → autorizada deja de consultar y desbloquea', () async {
       final controller = controllerFor(scheduledOrder(
         type: ServiceType.instalacion,

@@ -181,6 +181,9 @@ class _ServiceOrderFlowViewState extends State<_ServiceOrderFlowView> {
               onSelected: (value) {
                 if (value == 'refresh') _refresh();
                 if (value == 'not_completed') _markNotCompleted();
+                if (value == 'existing_equipment') {
+                  controller.reportExistingEquipment();
+                }
               },
               itemBuilder: (_) => [
                 const PopupMenuItem(
@@ -190,6 +193,15 @@ class _ServiceOrderFlowViewState extends State<_ServiceOrderFlowView> {
                     style: TextStyle(color: Colors.white),
                   ),
                 ),
+                if (controller.canReportExistingEquipment &&
+                    !controller.isReportingExistingEquipment)
+                  const PopupMenuItem(
+                    value: 'existing_equipment',
+                    child: Text(
+                      'Ya tiene un equipo instalado',
+                      style: TextStyle(color: ServiceOrderColors.warning),
+                    ),
+                  ),
                 if (canMarkNotCompleted)
                   const PopupMenuItem(
                     value: 'not_completed',

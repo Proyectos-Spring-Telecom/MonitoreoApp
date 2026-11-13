@@ -183,8 +183,9 @@ class FakeServiceOrderRepository implements ServiceOrderRepository {
   Future<void> requestAuthorization(
     String orderId, {
     required String observations,
+    bool thirdParty = false,
   }) =>
-      _act('authorization');
+      _act(thirdParty ? 'authorization:tercero' : 'authorization');
 
   @override
   Future<VerificationCodeRequest> requestCode(String orderId) async {

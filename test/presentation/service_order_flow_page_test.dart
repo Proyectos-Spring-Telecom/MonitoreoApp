@@ -573,4 +573,39 @@ void main() {
     expect(find.text('Registrando vehículo…'), findsNothing);
     expect(repository.updates.last['idProducto'], isNotNull);
   });
+
+  testWidgets(
+      'alta: desde ⋮ se reporta un equipo instalado y se pide '
+      'autorización', (tester) async {
+    await openOrder(
+      tester,
+      scheduledOrder(
+        type: ServiceType.instalacion,
+        status: ServiceOrderStatus.borrador,
+        productId: '812',
+      ),
+    );
+    expect(find.text('Pedir autorización'), findsNothing);
+
+    await tapVisible(tester, find.text('Siguiente'));
+    expect(controllerOf(tester).currentStep, ServiceOrderStep.installation);
+
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.text('No se pudo realizar'), findsOneWidget);
+    await tester.tap(find.text('Ya tiene un equipo instalado'));
+    await tester.pumpAndSettle();
+
+    expect(
+        find.text('El vehículo ya tiene un equipo instalado'), findsOneWidget);
+    expect(find.text('Pedir autorización'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Cancelar, no tiene equipo'));
+    expect(find.text('Pedir autorización'), findsNothing);
+    expect(
+      find.widgetWithText(
+          OutlinedButton, 'El vehículo ya tiene un equipo instalado'),
+      findsOneWidget,
+    );
+  });
 }

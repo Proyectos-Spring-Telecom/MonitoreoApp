@@ -140,10 +140,15 @@ class ServiceOrderRepositoryImpl implements ServiceOrderRepository {
   Future<void> requestAuthorization(
     String orderId, {
     required String observations,
+    bool thirdParty = false,
   }) async {
     await apiClient.post(
       ApiEndpoints.serviceOrderAuthorization(orderId),
-      body: {'observaciones': observations.trim()},
+      body: {
+        'observaciones': observations.trim(),
+        // Solo en el reporte manual: la solicitud normal no cambia.
+        if (thirdParty) 'equipoTercero': true,
+      },
     );
   }
 
