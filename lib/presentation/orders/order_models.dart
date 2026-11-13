@@ -55,6 +55,19 @@ DateTime orderDay(DateTime date) {
   return DateTime(local.year, local.month, local.day);
 }
 
+/// Color de cada tipo de servicio. Es el mismo en la agenda, el calendario,
+/// "En curso" y el historial.
+Color serviceTypeColor(ServiceType? type) => switch (type) {
+      ServiceType.instalacion => ServiceOrderColors.accent,
+      ServiceType.revision => ServiceOrderColors.warning,
+      ServiceType.cSim || ServiceType.cEquipo => ServiceOrderColors.violet,
+      ServiceType.desinstalacion => const Color(0xFFF26D6D),
+      null => ServiceOrderColors.hintText,
+    };
+
+/// Color del tipo que muestra [orderTypeLabel].
+Color orderTypeColor(ServiceOrderRecord order) => serviceTypeColor(order.type);
+
 IconData orderTypeIcon(ServiceOrderRecord order) {
   final type = order.type;
   return type == null
@@ -79,7 +92,7 @@ String orderTypeWithScheduled(ServiceOrderRecord order) {
 extension ServiceOrderStatusStyle on ServiceOrderStatus {
   Color get color => switch (this) {
         ServiceOrderStatus.programada => ServiceOrderColors.accent,
-        ServiceOrderStatus.borrador => ServiceOrderColors.warning,
+        ServiceOrderStatus.borrador => ServiceOrderColors.accent,
         ServiceOrderStatus.cerrada => ServiceOrderColors.success,
         ServiceOrderStatus.noCumplida => const Color(0xFFF26D6D),
         ServiceOrderStatus.cancelada => ServiceOrderColors.hintText,

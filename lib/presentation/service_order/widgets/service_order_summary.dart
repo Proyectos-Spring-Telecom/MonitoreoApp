@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../core/constants/app_colors.dart';
 import '../../../domain/entities/service_order_record.dart';
 import 'service_order_icons.dart';
 import 'service_order_ui.dart';
@@ -186,14 +185,14 @@ extension TestStatusStyle on TestStatus? {
 
   Color get color => switch (this) {
         TestStatus.correcta => ServiceOrderColors.success,
-        TestStatus.fallida => AppColors.error,
+        TestStatus.fallida => CircleStatusIcon.removed,
         TestStatus.solicitada => ServiceOrderColors.warning,
         TestStatus.anulada || null => ServiceOrderColors.hintText,
       };
 
   IconData get icon => switch (this) {
-        TestStatus.correcta => Icons.check_circle,
-        TestStatus.fallida => Icons.cancel_outlined,
+        TestStatus.correcta => Icons.check_rounded,
+        TestStatus.fallida => Icons.close_rounded,
         TestStatus.solicitada => Icons.hourglass_top,
         TestStatus.anulada => Icons.block,
         null => Icons.remove_circle_outline,
@@ -244,7 +243,11 @@ class SummaryTestRow extends StatelessWidget {
                   ),
                 ),
               ),
-              Icon(status.icon, size: 18, color: color),
+              switch (status) {
+                TestStatus.correcta => const CircleStatusIcon.check(size: 20),
+                TestStatus.fallida => const CircleStatusIcon.cross(size: 20),
+                _ => Icon(status.icon, size: 18, color: color),
+              },
               const SizedBox(width: 6),
               Text(
                 status.labelOr(emptyLabel),
@@ -315,7 +318,7 @@ class SummaryTagColors {
   SummaryTagColors._();
 
   static const Color serviceType = Color(0xFF6FA8E8);
-  static const Color features = Color(0xFFA78BFA);
+  static const Color features = ServiceOrderColors.violet;
   static const Color operation = ServiceOrderColors.success;
   static const Color failures = Color(0xFFF26D6D);
 }

@@ -6,6 +6,8 @@ import 'package:monitoreo/domain/entities/service_order.dart';
 import 'package:monitoreo/domain/entities/service_order_record.dart';
 import 'package:monitoreo/domain/repositories/service_order_repository.dart';
 import 'package:monitoreo/presentation/agenda/agenda_page.dart';
+import 'package:monitoreo/presentation/orders/order_models.dart';
+import 'package:monitoreo/presentation/service_order/widgets/service_order_ui.dart';
 
 import '../helpers/fake_service_order_repository.dart';
 
@@ -186,5 +188,25 @@ void main() {
     expect(find.text('Octubre 2026'), findsOneWidget);
     expect(lineHeight('30'), lessThan(30));
     expect(tester.takeException(), isNull);
+  });
+
+  test('colores: revisión en amarillo, cambios en violeta y "En curso" en azul',
+      () {
+    expect(
+      orderTypeColor(scheduledOrder(type: ServiceType.revision)),
+      ServiceOrderColors.warning,
+    );
+    expect(ServiceOrderStatus.borrador.color, ServiceOrderColors.accent);
+    // Cada tipo con su propio color.
+    final colors = {
+      for (final type in ServiceType.values)
+        orderTypeColor(scheduledOrder(type: type)),
+    };
+    expect(colors.length, ServiceType.values.length - 1,
+        reason: 'cambio de SIM y de equipo comparten color');
+    expect(
+      orderTypeColor(scheduledOrder(type: ServiceType.cSim)),
+      ServiceOrderColors.violet,
+    );
   });
 }

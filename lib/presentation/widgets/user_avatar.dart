@@ -4,8 +4,6 @@ import '../service_order/widgets/service_order_ui.dart';
 /// Foto de perfil del usuario (`fotoPerfil`) con el aro de degradado de la
 /// app. Muestra las iniciales mientras carga, si no hay foto o si falla.
 class UserAvatar extends StatelessWidget {
-  static const Color _purple = Color(0xFFA78BFA);
-
   final String? imageUrl;
   final String? name;
   final double radius;
@@ -47,7 +45,7 @@ class UserAvatar extends StatelessWidget {
       decoration: const BoxDecoration(
         shape: BoxShape.circle,
         gradient: LinearGradient(
-          colors: [ServiceOrderColors.accent, _purple],
+          colors: [ServiceOrderColors.accent, ServiceOrderColors.violet],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),

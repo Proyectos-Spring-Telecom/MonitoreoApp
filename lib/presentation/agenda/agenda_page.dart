@@ -268,7 +268,7 @@ class _AgendaCard extends StatelessWidget {
                   children: [
                     Icon(
                       orderTypeIcon(order),
-                      color: ServiceOrderColors.accent,
+                      color: orderTypeColor(order),
                       size: 22,
                     ),
                     const SizedBox(width: 10),

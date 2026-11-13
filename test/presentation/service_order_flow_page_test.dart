@@ -329,6 +329,125 @@ void main() {
     expect(find.text('777'), findsOneWidget, reason: 'Teléfono');
   });
 
+  /// Orden de cambio en curso con la instalación actual y lo que entra.
+  ServiceOrderRecord changeOrder(
+    ServiceType type, {
+    String? newDeviceId,
+    String? newSimId,
+    InstallationSummary? newEquipment,
+  }) {
+    final base = scheduledOrder(
+      type: type,
+      status: ServiceOrderStatus.borrador,
+      codeValidated: true,
+    );
+    return ServiceOrderRecord(
+      id: base.id,
+      folio: base.folio,
+      typeKey: base.typeKey,
+      scheduledTypeKey: base.scheduledTypeKey,
+      statusKey: base.statusKey,
+      origin: base.origin,
+      clientId: base.clientId,
+      plate: base.plate,
+      codeValidated: true,
+      installationId: '15',
+      installation: const InstallationSummary(
+        equipmentType: 'AVL',
+        device: 'Suntech ST210 - IMEI 111 - Serie: 0000111',
+        sim: 'Telcel - ICCID 8952020025494551111 - Tel: 7773246547',
+      ),
+      newDeviceId: newDeviceId,
+      newSimId: newSimId,
+      newEquipment: newEquipment,
+      outgoingStatus: OutgoingStatus.porRevisar.id,
+    );
+  }
+
+  Future<void> openSummary(
+      WidgetTester tester, ServiceOrderRecord order) async {
+    await openOrder(tester, order);
+    controllerOf(tester).goTo(ServiceOrderStep.summary);
+    await tester.pumpAndSettle();
+  }
+
+  /// Texto dentro de la tarjeta de [label] ("SIM nueva", "SIM a quitar"…).
+  Finder inCard(String label, String text) => find.descendant(
+        of: find.ancestor(
+          of: find.text(label),
+          matching: find.byWidgetPredicate(
+            (widget) => widget.runtimeType.toString() == '_EquipmentDetail',
+          ),
+        ),
+        matching: find.text(text),
+      );
+
+  Finder inCardIcon(String label, IconData icon) => find.descendant(
+        of: find.ancestor(
+          of: find.text(label),
+          matching: find.byWidgetPredicate(
+            (widget) => widget.runtimeType.toString() == '_EquipmentDetail',
+          ),
+        ),
+        matching: find.byIcon(icon),
+      );
+
+  testWidgets('resumen del cambio de SIM: la nueva y la que se quita',
+      (tester) async {
+    await openSummary(
+      tester,
+      changeOrder(
+        ServiceType.cSim,
+        newEquipment: const InstallationSummary(
+          sim: 'Telcel - ICCID 8952020926393938002 - Tel: 7775047792',
+        ),
+      ),
+    );
+
+    expect(inCard('SIM nueva', '8952020926393938002'), findsOneWidget);
+    expect(inCard('SIM nueva', '7775047792'), findsOneWidget);
+    expect(inCard('SIM a quitar', '8952020025494551111'), findsOneWidget);
+    expect(inCard('SIM a quitar', '7773246547'), findsOneWidget);
+    // ✓ en lo que entra y ✕ en lo que sale.
+    expect(inCardIcon('SIM nueva', Icons.check_rounded), findsOneWidget);
+    expect(inCardIcon('SIM a quitar', Icons.close_rounded), findsOneWidget);
+    expect(inCardIcon('Dispositivo', Icons.check_rounded), findsNothing);
+    expect(inCardIcon('Dispositivo', Icons.close_rounded), findsNothing);
+    expect(find.text('SIM'), findsNothing);
+    // El dispositivo no cambia.
+    expect(inCard('Dispositivo', '111'), findsOneWidget);
+    expect(find.text('Por revisar'), findsOneWidget);
+    expect(
+      tester.getTopLeft(find.text('SIM nueva')).dy,
+      lessThan(tester.getTopLeft(find.text('SIM a quitar')).dy),
+    );
+  });
+
+  testWidgets('resumen del cambio de SIM sin textos del API: usa el catálogo',
+      (tester) async {
+    await openSummary(tester, changeOrder(ServiceType.cSim, newSimId: '77'));
+
+    expect(inCard('SIM nueva', '0009999'), findsOneWidget, reason: 'ICCID');
+    expect(inCard('SIM a quitar', '8952020025494551111'), findsOneWidget);
+  });
+
+  testWidgets('resumen del cambio de equipo: el nuevo y el que se quita',
+      (tester) async {
+    await openSummary(
+      tester,
+      changeOrder(ServiceType.cEquipo, newDeviceId: '981'),
+    );
+
+    expect(inCard('Dispositivo nuevo', '222'), findsOneWidget, reason: 'IMEI');
+    expect(inCard('Dispositivo a quitar', '111'), findsOneWidget);
+    expect(
+        inCardIcon('Dispositivo nuevo', Icons.check_rounded), findsOneWidget);
+    expect(inCardIcon('Dispositivo a quitar', Icons.close_rounded),
+        findsOneWidget);
+    expect(inCard('SIM', '8952020025494551111'), findsOneWidget);
+    expect(find.text('SIM nueva'), findsNothing);
+  });
+
   testWidgets('no se pudo realizar: motivo del técnico', (tester) async {
     await openOrder(tester, scheduledOrder());
     repository.onAction = (action, repo) {

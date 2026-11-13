@@ -45,19 +45,25 @@ class _SummaryStepState extends State<SummaryStep> {
     await _loadStockIfNeeded();
   }
 
-  /// En el alta el API puede mandar solo `idDispositivoNuevo` e `idSimNuevo`;
-  /// los textos se toman del catálogo del cliente, como en "Instalación".
+  /// En el alta y en los cambios el API puede mandar solo
+  /// `idDispositivoNuevo` e `idSimNuevo`; los textos se toman del catálogo del
+  /// cliente, como en "Instalación".
   Future<void> _loadStockIfNeeded() async {
     final order = context.read<ServiceOrderFlowController>().order;
     final clientId = order?.clientId;
+    final type = order?.type;
     if (_stock != null ||
         order == null ||
         clientId == null ||
-        order.type != ServiceType.instalacion ||
-        (order.newDeviceId == null && order.newSimId == null) ||
-        (order.equipment?.isComplete ?? false)) {
+        type == null ||
+        !(type == ServiceType.instalacion || type.takesOutgoingStatus)) {
       return;
     }
+    final incoming = order.resultingInstallation ?? order.newEquipment;
+    final needsDevice = order.newDeviceId != null &&
+        (incoming?.device == null || incoming?.equipmentType == null);
+    final needsSim = order.newSimId != null && incoming?.sim == null;
+    if (!needsDevice && !needsSim) return;
     try {
       final stock = await context
           .read<InstallationRemoteDataSource>()

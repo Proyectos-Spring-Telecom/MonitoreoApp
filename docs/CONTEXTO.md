@@ -193,16 +193,19 @@ Las reglas que valida el servidor se respetan también en la app para avisar ant
 | Acento | `#6FA8E8` | `ServiceOrderColors.accent` |
 | Éxito | `#34C38F` | `ServiceOrderColors.success` |
 | Advertencia | `#F5A524` | `ServiceOrderColors.warning` |
+| Violeta | `#A78BFA` | `ServiceOrderColors.violet` |
 | Texto secundario / pista | blanco 70 % / 50 % | `mutedText`, `hintText` |
 
-**Color por tipo de servicio** (agenda y etiquetas, `agendaTypeColor`):
+**Color por tipo de servicio** (agenda, calendario, «En curso» e historial; `orderTypeColor` en `order_models.dart`):
 
 | Tipo | Color |
 |---|---|
 | Alta | Acento `#6FA8E8` |
-| Revisión | Éxito `#34C38F` |
-| Cambio de SIM / equipo | Advertencia `#F5A524` |
+| Revisión | Amarillo `#F5A524` |
+| Cambio de SIM / equipo | Violeta `#A78BFA` |
 | Desinstalación | Rojo `#F26D6D` |
+
+**Color por estatus** (etiquetas, `ServiceOrderStatusStyle`): programada y **en curso** en azul `#6FA8E8`, cerrada en verde `#34C38F`, no cumplida en rojo `#F26D6D` y cancelada en gris.
 
 ### Tipografía y transiciones
 

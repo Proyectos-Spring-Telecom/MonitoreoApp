@@ -20,7 +20,6 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   static const Color _green = Color(0xFF34C38F);
   static const Color _amber = Color(0xFFF5A524);
-  static const Color _purple = Color(0xFFA78BFA);
   static const Color _red = Color(0xFFF26D6D);
 
   static const String _noRecord = 'Sin registro';
@@ -198,7 +197,7 @@ class _ProfilePageState extends State<ProfilePage> {
     final rows = [
       (
         Icons.person_outline,
-        _purple,
+        ServiceOrderColors.violet,
         'Nombre completo',
         _orNoRecord(user.name)
       ),
@@ -223,7 +222,7 @@ class _ProfilePageState extends State<ProfilePage> {
       ),
       (
         Icons.schedule,
-        _purple,
+        ServiceOrderColors.violet,
         'Último acceso',
         _formatDate(user.lastLogin),
       ),

@@ -11,6 +11,7 @@ import 'package:monitoreo/domain/repositories/service_order_repository.dart';
 import 'package:monitoreo/presentation/controllers/auth_controller.dart';
 import 'package:monitoreo/presentation/orders/completed_orders_page.dart';
 import 'package:monitoreo/presentation/orders/order_detail_page.dart';
+import 'package:monitoreo/presentation/service_order/widgets/service_order_ui.dart';
 
 import '../helpers/fake_auth_repository.dart';
 import '../helpers/fake_service_order_repository.dart';
@@ -135,6 +136,31 @@ void main() {
 
     expect(repository.listed.last, ServiceOrderStatus.cerrada);
     expect(find.text('OS-000003'), findsOneWidget);
+  });
+
+  testWidgets('la etiqueta del tipo usa el color del tipo, como la agenda',
+      (tester) async {
+    final simChange = ServiceOrderRecord(
+      id: '10',
+      folio: 'OS-000010',
+      typeKey: 'c_sim',
+      scheduledTypeKey: 'revision',
+      statusKey: 'cerrada',
+      clientName: 'Andrea Barajas',
+      closedAt: MexicoCityTime.parseApi('2026-11-12T16:19:00.000Z'),
+    );
+    repository.agenda = [closedOrder, simChange];
+    await pumpPage(tester);
+
+    Color? tagColor(String label) => tester
+        .widget<ServiceOrderTag>(find.ancestor(
+          of: find.text(label),
+          matching: find.byType(ServiceOrderTag),
+        ))
+        .color;
+
+    expect(tagColor('Instalación'), ServiceOrderColors.accent);
+    expect(tagColor('Cambio de SIM'), ServiceOrderColors.violet);
   });
 
   testWidgets('si falla muestra el error y permite reintentar', (tester) async {
